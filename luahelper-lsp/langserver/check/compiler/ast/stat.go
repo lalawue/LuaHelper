@@ -155,7 +155,7 @@ type ClassDefStat struct {
 	SType lexer.TkKind      // 可以是 class，struct 或者 extension
 	Super *NameExp          // super class name
 	Name  *LocalVarDeclStat // 包装为一个 local table
-	List  []Stat
+	List  []*AssignStat
 	Loc   lexer.Location // 整体类的位置信息
 }
 

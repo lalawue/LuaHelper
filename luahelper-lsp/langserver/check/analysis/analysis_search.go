@@ -243,7 +243,7 @@ func (a *Analysis) findGlobalVar(strName string, loc lexer.Location, strProPre s
 	// 0) 如果是在第六轮， 判断传人的系统名字是变量还是函数
 	if a.isSixTerm() {
 		subExp, ok := nameExp.(*ast.NameExp)
-		if ok && subExp.Name == "self" {
+		if ok && common.IsSelf(a.entryFile, subExp.Name) {
 			return
 		}
 
@@ -410,7 +410,7 @@ func (a *Analysis) findNameStr(node *ast.NameExp, binParentExp *ast.BinopExp) {
 	// 第二轮分析引用的变量是否之前有定义
 	strName := node.Name
 	// 1) self进行替换
-	if strName == "self" {
+	if common.IsSelf(a.entryFile, strName) {
 		strName = a.ChangeSelfToReferVar(strName, "")
 		index := strings.Index(strName, ".")
 		if index >= 0 {
@@ -482,7 +482,7 @@ func (a *Analysis) findThreeLevelCall(node ast.Exp, nameExp ast.Exp) {
 	strTableArry := strings.Split(strTable, ".")
 
 	// self进行替换
-	if strTableArry[0] == "!self" {
+	if strTableArry[0] == "!self" || (strings.HasSuffix(a.entryFile, ".mooc") && strTableArry[0] == "!Self") {
 		strTableArry[0] = a.ChangeSelfToReferVar(strTableArry[0], "!")
 	}
 	_, strTableArry[0] = common.StrRemoveSigh(strTableArry[0])
@@ -630,7 +630,7 @@ func (a *Analysis) findFiveTableAccess(prefixExp ast.Exp, nameExp ast.Exp, nodeL
 	strName := strTable[1:]
 	nameArry := strings.Split(strName, ".")
 	strOne := nameArry[0]
-	if strOne == "self" {
+	if common.IsSelf(a.entryFile, strOne) {
 		strOne = a.ChangeSelfToReferVar(strOne, "")
 	}
 
@@ -851,7 +851,7 @@ func (a *Analysis) findFuncColon(prefixExp ast.Exp, nameExp ast.Exp, nodeLoc lex
 	strProPre := common.GConfig.GetStrProtocol(strTable)
 
 	// self进行转换
-	if strTable == "!self" {
+	if strTable == "!self" || (strings.HasSuffix(a.entryFile, ".mooc") && strTable == "!Self") {
 		strTable = a.ChangeSelfToReferVar(strTable, "!")
 	}
 
@@ -1144,7 +1144,7 @@ func (a *Analysis) findTableDefine(node *ast.TableAccessExp) {
 	// 4) 第二轮或第三轮判断table取值是否有定义
 	strTable := common.GetExpName(node.PrefixExp)
 	// self进行替换
-	if strTable == "!self" {
+	if strTable == "!self" || (strings.HasSuffix(a.entryFile, ".mooc") && strTable == "!Self") {
 		strTable = a.ChangeSelfToReferVar(strTable, "!")
 	}
 	strProPre := common.GConfig.GetStrProtocol(strTable)

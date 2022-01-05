@@ -1395,3 +1395,13 @@ func GetSimpleExpType(node ast.Exp) LuaType {
 
 	return LuaTypeAll
 }
+
+func IsSelf(strFile string, name string) bool {
+	if name == "self" {
+		return true
+	} else if strings.HasSuffix(strFile, ".mooc") && name == "Self" {
+		return true
+	} else {
+		return false
+	}
+}

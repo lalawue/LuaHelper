@@ -36,6 +36,14 @@ func (a *Analysis) cgStat(node ast.Stat) {
 		a.cgGotoStat(stat)
 	case *ast.BreakStat:
 		a.cgBreakStat(stat)
+	case *ast.ClassDefStat:
+		a.cgClassStat(stat)
+	case *ast.ImportDefStat:
+		a.cgImportStat(stat)
+	case *ast.SwitchStat:
+		a.cgSwitchStat(stat)
+	case *ast.ExportAllStat:
+		// FIXME: 这个语法的含义是，忽略这一层后续所有未定义的变量，在这里应该不需要处理
 	}
 }
 
@@ -904,6 +912,8 @@ func (a *Analysis) cgAssignStat(node *ast.AssignStat) {
 	// 最后一个表达式是否为指向函数
 	_, lastExpFuncFlag := lastExp.(*ast.FuncCallExp)
 
+	isMooc := strings.HasSuffix(a.entryFile, ".mooc")
+
 	for i, valExp := range node.VarList {
 		var newVar *common.VarInfo
 		var newRefer *common.ReferInfo
@@ -940,30 +950,77 @@ func (a *Analysis) cgAssignStat(node *ast.AssignStat) {
 
 		// 需要定义变量
 		if needDefineFlag {
-			newVar = common.CreateOneGlobal(fileResult.Name, fi.FuncLv, fi.ScopeLv, loc, gGlag, newRefer, newFunc, fileResult.Name)
-			newVar.VarIndex = varIndex
-			newVar.ExtraGlobal.StrProPre = strProPre
-
-			if nExps >= (i + 1) {
-				expNode := node.ExpList[i]
-				newVar.VarType = common.GetExpType(expNode)
-				newVar.ReferExp = expNode
-
-				// 判断指向的ReferExp是否为有效的, 如果为empty，设置对应的标记
-				if common.IsReferExpEmpty(valExp, expNode, false) {
-					newVar.IsExpEmpty = true
+			if isMooc && (node.Attr != ast.VDKEXPORT) {
+				if nExps <= (i + 1) {
+					// FIXME: 这里因为超出范围，先略过
+					continue
+				}
+				// 如果是 mooc 非 export 场景，创建 local 变量
+				exp := node.ExpList[i]
+				tempVar := common.CreateVarInfo(fileResult.Name, common.LuaTypeAll, nil, lexer.Location{}, varIndex)
+				oneFunc, oneRefer := a.cgExp(exp, tempVar, nil)
+				if oneRefer != nil {
+					oneRefer.ReferVarLocal = true
 				}
 
-			} else if lastExpFuncFlag {
-				newVar.VarType = common.GetExpType(lastExp)
-				newVar.ReferExp = lastExp
+				scope := a.curScope
+
+				nowLoc := node.Loc
+				varInfo := scope.AddLocVar(fileResult.Name, strName, common.GetExpType(exp), exp, nowLoc, varIndex)
+
+				switch exp.(type) {
+				case *ast.FuncDefExp:
+					// 定义为local abcd1 = function ()
+					varInfo.ReferFunc = oneFunc
+				case *ast.FuncCallExp:
+					varInfo.ReferInfo = oneRefer
+					// 如果局部变量是获取的函数返回值，且引用了其他的文件
+					if oneRefer != nil {
+						varInfo.IsUse = true
+					}
+					// 最后一个表达式是函数调用
+					if i == nExps-1 {
+						lastExpFuncFlag = true
+					}
+				}
+
+				// 构造这个变量的table 构造的成员
+				varInfo.SubMaps = tempVar.SubMaps
+
+				// 关联这个变量，引用其他的变量
+				// 当前是局部变量赋值的时候，关联这个变量指向其他的变量
+				varInfo.ReferExp = exp
+
+				// 判断指向的ReferExp是否为有效的, 如果为empty，设置对应的标记
+				if common.IsLocalReferExpEmpty(strName, exp) {
+					varInfo.IsExpEmpty = true
+				}
+			} else {
+				newVar = common.CreateOneGlobal(fileResult.Name, fi.FuncLv, fi.ScopeLv, loc, gGlag, newRefer, newFunc, fileResult.Name)
+				newVar.VarIndex = varIndex
+				newVar.ExtraGlobal.StrProPre = strProPre
+
+				if nExps >= (i + 1) {
+					expNode := node.ExpList[i]
+					newVar.VarType = common.GetExpType(expNode)
+					newVar.ReferExp = expNode
+
+					// 判断指向的ReferExp是否为有效的, 如果为empty，设置对应的标记
+					if common.IsReferExpEmpty(valExp, expNode, false) {
+						newVar.IsExpEmpty = true
+					}
+
+				} else if lastExpFuncFlag {
+					newVar.VarType = common.GetExpType(lastExp)
+					newVar.ReferExp = lastExp
+				}
+
+				// 拷贝过来
+				newVar.SubMaps = tmpVar.SubMaps
+
+				// 插入全局变量
+				a.insertAnalysisGlobalVar(strName, newVar)
 			}
-
-			// 拷贝过来
-			newVar.SubMaps = tmpVar.SubMaps
-
-			// 插入全局变量
-			a.insertAnalysisGlobalVar(strName, newVar)
 		} else {
 			strVecLen := len(strVec)
 			if findVar != nil && strVecLen > 0 {
@@ -1144,4 +1201,53 @@ func (a *Analysis) cgAssignStat(node *ast.AssignStat) {
 			a.checkTableAccess(leftExp)
 		}
 	}
+}
+
+func (a *Analysis) cgClassStat(node *ast.ClassDefStat) {
+
+	if node.SType == lexer.TkKwClass || node.SType == lexer.TkKwExtension {
+		if node.Super != nil && a.isFourTerm() {
+			a.findNameStr(node.Super, nil)
+		}
+	}
+
+	// class 作为 table 定义，在 class scope 外可见
+	a.cgStat(node.Name)
+
+	a.enterScope()
+	backupScope := a.curScope
+
+	subScope := common.CreateScopeInfo(backupScope, nil, node.Loc)
+	backupScope.AppendSubScope(subScope)
+	a.curScope = subScope
+
+	for _, vf := range node.List {
+		a.cgAssignStat(vf)
+	}
+
+	a.exitScope()
+	a.curScope = backupScope
+}
+
+func (a *Analysis) cgImportStat(node *ast.ImportDefStat) {
+	if node.Lib != nil {
+		a.cgFuncCallStat(node.Lib)
+	} else {
+		for _, exp := range node.Name.ExpList {
+			switch e := exp.(type) {
+			case *ast.FuncCallExp:
+				a.GetImportReferByCallExp(e)
+			default:
+				// FIXME: table access exp，这里需要对诸如 local name = require("lib").name 做引用解析
+				break
+			}
+		}
+		a.cgLocalVarDeclStat(node.Name)
+	}
+}
+
+func (a *Analysis) cgSwitchStat(node *ast.SwitchStat) {
+	// 定义 local __sw__ = exp
+	a.cgStat(node.Name)
+	a.cgStat(node.Case)
 }

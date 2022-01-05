@@ -745,7 +745,7 @@ func (p *moocParser) parserClassDefStat(token lexer.TkKind) ast.Stat {
 
 	l.NextTokenKind(lexer.TkSepLcurly)
 
-	vfList := []ast.Stat{}
+	vfList := []*ast.AssignStat{}
 	for {
 		token := l.LookAheadKind()
 		if token == lexer.TkKwStatic || token == lexer.TkKwFn {
@@ -770,7 +770,10 @@ func (p *moocParser) parserClassDefStat(token lexer.TkKind) ast.Stat {
 					KeyExp:    keyExp,
 					Loc:       tableLoc,
 				}
-				vfList = append(vfList, p.parseAssignStat(tableLoc, prefixExp))
+				switch v := p.parseAssignStat(tableLoc, prefixExp).(type) {
+				case *ast.AssignStat:
+					vfList = append(vfList, v)
+				}
 			} else {
 				break
 			}
