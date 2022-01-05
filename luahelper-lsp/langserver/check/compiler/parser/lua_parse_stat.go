@@ -5,8 +5,6 @@ import (
 	"luahelper-lsp/langserver/check/compiler/lexer"
 )
 
-var _statEmpty = &ast.EmptyStat{}
-
 /*
 stat ::=  ‘;’
 	| break
@@ -24,7 +22,7 @@ stat ::=  ‘;’
 	| varlist ‘=’ explist
 	| functioncall
 */
-func (p *Parser) parseStat() ast.Stat {
+func (p *luaParser) parseStat() ast.Stat {
 	switch p.l.LookAheadKind() {
 	case lexer.TkSepSemi:
 		return p.parseEmptyStat()
@@ -56,13 +54,13 @@ func (p *Parser) parseStat() ast.Stat {
 }
 
 // ;
-func (p *Parser) parseEmptyStat() *ast.EmptyStat {
+func (p *luaParser) parseEmptyStat() *ast.EmptyStat {
 	p.l.NextTokenKind(lexer.TkSepSemi)
 	return _statEmpty
 }
 
 // break
-func (p *Parser) parseBreakStat() *ast.BreakStat {
+func (p *luaParser) parseBreakStat() *ast.BreakStat {
 	p.l.NextTokenKind(lexer.TkKwBreak)
 
 	return &ast.BreakStat{
@@ -71,7 +69,7 @@ func (p *Parser) parseBreakStat() *ast.BreakStat {
 }
 
 // ‘::’ Name ‘::’
-func (p *Parser) parseLabelStat() *ast.LabelStat {
+func (p *luaParser) parseLabelStat() *ast.LabelStat {
 	p.l.NextTokenKind(lexer.TkSepLabel) // ::
 	_, name := p.l.NextIdentifier()     // name
 	loc := p.l.GetNowTokenLoc()
@@ -83,7 +81,7 @@ func (p *Parser) parseLabelStat() *ast.LabelStat {
 }
 
 // goto Name
-func (p *Parser) parseGotoStat() *ast.GotoStat {
+func (p *luaParser) parseGotoStat() *ast.GotoStat {
 	p.l.NextTokenKind(lexer.TkKwGoto) // goto
 	_, name := p.l.NextIdentifier()   // name
 	return &ast.GotoStat{
@@ -93,7 +91,7 @@ func (p *Parser) parseGotoStat() *ast.GotoStat {
 }
 
 // do block end
-func (p *Parser) parseDoStat() *ast.DoStat {
+func (p *luaParser) parseDoStat() *ast.DoStat {
 	l := p.l
 	l.NextTokenKind(lexer.TkKwDo) // do
 	beginLoc := l.GetNowTokenLoc()
@@ -114,7 +112,7 @@ func (p *Parser) parseDoStat() *ast.DoStat {
 }
 
 // while exp do block end
-func (p *Parser) parseWhileStat() *ast.WhileStat {
+func (p *luaParser) parseWhileStat() *ast.WhileStat {
 	l := p.l
 	l.NextTokenKind(lexer.TkKwWhile) // while
 	beginLoc := l.GetNowTokenLoc()
@@ -138,7 +136,7 @@ func (p *Parser) parseWhileStat() *ast.WhileStat {
 }
 
 // repeat block until exp
-func (p *Parser) parseRepeatStat() *ast.RepeatStat {
+func (p *luaParser) parseRepeatStat() *ast.RepeatStat {
 	l := p.l
 	l.NextTokenKind(lexer.TkKwRepeat) // repeat
 	beginLoc := l.GetNowTokenLoc()
@@ -161,7 +159,7 @@ func (p *Parser) parseRepeatStat() *ast.RepeatStat {
 }
 
 // if exp then block {elseif exp then block} [else block] end
-func (p *Parser) parseIfStat() *ast.IfStat {
+func (p *luaParser) parseIfStat() *ast.IfStat {
 	l := p.l
 	exps := make([]ast.Exp, 0, 1)
 	blocks := make([]*ast.Block, 0, 1)
@@ -220,7 +218,7 @@ func (p *Parser) parseIfStat() *ast.IfStat {
 
 // for Name ‘=’ exp ‘,’ exp [‘,’ exp] do block end
 // for namelist in explist do block end
-func (p *Parser) parseForStat() ast.Stat {
+func (p *luaParser) parseForStat() ast.Stat {
 	l := p.l
 	lineOfFor, _ := l.NextTokenKind(lexer.TkKwFor)
 	beginLoc := l.GetNowTokenLoc()
@@ -233,7 +231,7 @@ func (p *Parser) parseForStat() ast.Stat {
 }
 
 // for Name ‘=’ exp ‘,’ exp [‘,’ exp] do block end
-func (p *Parser) finishForNumStat(lineOfFor int, varName string, beginLoc *lexer.Location) *ast.ForNumStat {
+func (p *luaParser) finishForNumStat(lineOfFor int, varName string, beginLoc *lexer.Location) *ast.ForNumStat {
 	l := p.l
 	varNameLoc := l.GetNowTokenLoc()
 	l.NextTokenKind(lexer.TkOpAssign) // for name =
@@ -279,7 +277,7 @@ func (p *Parser) finishForNumStat(lineOfFor int, varName string, beginLoc *lexer
 // for namelist in explist do block end
 // namelist ::= Name {‘,’ Name}
 // explist ::= exp {‘,’ exp}
-func (p *Parser) finishForInStat(name0 string, beginLoc *lexer.Location) *ast.ForInStat {
+func (p *luaParser) finishForInStat(name0 string, beginLoc *lexer.Location) *ast.ForInStat {
 	l := p.l
 	varLoc0 := l.GetNowTokenLoc()
 	nameList, nameLocList := p.finishNameList(name0, varLoc0) // for namelist
@@ -307,7 +305,7 @@ func (p *Parser) finishForInStat(name0 string, beginLoc *lexer.Location) *ast.Fo
 }
 
 // namelist ::= Name {‘,’ Name}
-func (p *Parser) finishNameList(name0 string, varLoc0 lexer.Location) ([]string, []lexer.Location) {
+func (p *luaParser) finishNameList(name0 string, varLoc0 lexer.Location) ([]string, []lexer.Location) {
 	l := p.l
 	names := []string{name0}
 	locs := []lexer.Location{varLoc0}
@@ -322,7 +320,7 @@ func (p *Parser) finishNameList(name0 string, varLoc0 lexer.Location) ([]string,
 }
 
 // get local var attribute, add by guochuliang 2020-08-20
-func (p *Parser) getLocalAttribute() ast.LocalAttr {
+func (p *luaParser) getLocalAttribute() ast.LocalAttr {
 	l := p.l
 	if l.LookAheadKind() == lexer.TkOpLt {
 		l.NextToken()
@@ -348,7 +346,7 @@ func (p *Parser) getLocalAttribute() ast.LocalAttr {
 // 5.4
 // namelist ::= Name attrib {‘,’ Name attrib}
 // attrib ::= [ '<' Name '>' ] 5.4
-func (p *Parser) finishLocalNameList(name0 string, varLoc0 lexer.Location, kind ast.LocalAttr) ([]string,
+func (p *luaParser) finishLocalNameList(name0 string, varLoc0 lexer.Location, kind ast.LocalAttr) ([]string,
 	[]lexer.Location, []ast.LocalAttr) {
 	l := p.l
 	index := -1
@@ -379,7 +377,7 @@ func (p *Parser) finishLocalNameList(name0 string, varLoc0 lexer.Location, kind 
 
 // local function Name funcbody
 // local namelist [‘=’ explist]
-func (p *Parser) parseLocalAssignOrFuncDefStat() ast.Stat {
+func (p *luaParser) parseLocalAssignOrFuncDefStat() ast.Stat {
 	l := p.l
 	l.NextTokenKind(lexer.TkKwLocal)
 	if l.LookAheadKind() == lexer.TkKwFunction {
@@ -404,7 +402,7 @@ not to `local f = function () body end`
  contains references to f.)
 */
 // local function Name funcbody
-func (p *Parser) finishLocalFuncDefStat() *ast.LocalFuncDefStat {
+func (p *luaParser) finishLocalFuncDefStat() *ast.LocalFuncDefStat {
 	l := p.l
 	beginLoc := l.GetNowTokenLoc()
 
@@ -424,7 +422,7 @@ func (p *Parser) finishLocalFuncDefStat() *ast.LocalFuncDefStat {
 }
 
 // local namelist [‘=’ explist]
-func (p *Parser) finishLocalVarDeclStat() *ast.LocalVarDeclStat {
+func (p *luaParser) finishLocalVarDeclStat() *ast.LocalVarDeclStat {
 	l := p.l
 	beginLoc := l.GetNowTokenLoc()
 	_, name0 := l.NextIdentifier() // local Name
@@ -450,7 +448,7 @@ func (p *Parser) finishLocalVarDeclStat() *ast.LocalVarDeclStat {
 
 // varlist ‘=’ explist
 // functioncall
-func (p *Parser) parseAssignOrFuncCallStat() ast.Stat {
+func (p *luaParser) parseAssignOrFuncCallStat() ast.Stat {
 	l := p.l
 	beginLoc := l.GetHeardTokenLoc()
 	prefixExp := p.parsePrefixExp()
@@ -470,7 +468,7 @@ func (p *Parser) parseAssignOrFuncCallStat() ast.Stat {
 }
 
 // varlist ‘=’ explist |
-func (p *Parser) parseAssignStat(preLoc lexer.Location, var0 ast.Exp) ast.Stat {
+func (p *luaParser) parseAssignStat(preLoc lexer.Location, var0 ast.Exp) ast.Stat {
 	l := p.l
 	symList := p.finishVarList(var0) // varlist
 
@@ -495,7 +493,7 @@ func (p *Parser) parseAssignStat(preLoc lexer.Location, var0 ast.Exp) ast.Stat {
 }
 
 // varlist ::= var {‘,’ var}
-func (p *Parser) finishVarList(var0 ast.Exp) []ast.Exp {
+func (p *luaParser) finishVarList(var0 ast.Exp) []ast.Exp {
 	l := p.l
 	vars := []ast.Exp{p.checkVar(var0)}         // var := p
 	for l.LookAheadKind() == lexer.TkSepComma { // {
@@ -507,7 +505,7 @@ func (p *Parser) finishVarList(var0 ast.Exp) []ast.Exp {
 }
 
 // var ::=  Name | prefixexp ‘[’ exp ‘]’ | prefixexp ‘.’ Name
-func (p *Parser) checkVar(exp ast.Exp) ast.Exp {
+func (p *luaParser) checkVar(exp ast.Exp) ast.Exp {
 	l := p.l
 	switch exp.(type) {
 	case *ast.NameExp, *ast.TableAccessExp, *ast.BadExpr:
@@ -527,7 +525,7 @@ func (p *Parser) checkVar(exp ast.Exp) ast.Exp {
 // funcbody ::= ‘(’ [parlist] ‘)’ block end
 // parlist ::= namelist [‘,’ ‘...’] | ‘...’
 // namelist ::= Name {‘,’ Name}
-func (p *Parser) parseFuncDefStat() *ast.AssignStat {
+func (p *luaParser) parseFuncDefStat() *ast.AssignStat {
 	l := p.l
 	l.NextTokenKind(lexer.TkKwFunction) // function
 	beginLoc := l.GetNowTokenLoc()
@@ -555,7 +553,7 @@ func (p *Parser) parseFuncDefStat() *ast.AssignStat {
 }
 
 // funcname ::= Name {‘.’ Name} [‘:’ Name]
-func (p *Parser) parseFuncName() (exp ast.Exp, hasColon bool) {
+func (p *luaParser) parseFuncName() (exp ast.Exp, hasColon bool) {
 	l := p.l
 	_, name := l.NextIdentifier()
 	loc := l.GetNowTokenLoc()
@@ -607,7 +605,7 @@ func (p *Parser) parseFuncName() (exp ast.Exp, hasColon bool) {
 	return
 }
 
-// func (p *Parser) parseIKIllegalStat() *ast.IllegalStat{
+// func (p *luaParser) parseIKIllegalStat() *ast.IllegalStat{
 // 	l := p.l
 // 	loc := l.GetNowTokenLoc()
 // 	l.NextToken()
@@ -617,7 +615,7 @@ func (p *Parser) parseFuncName() (exp ast.Exp, hasColon bool) {
 // 	}
 // }
 
-func (p *Parser) parseIKIllegalStat() *ast.EmptyStat {
+func (p *luaParser) parseIKIllegalStat() *ast.EmptyStat {
 	p.l.NextToken()
 	return _statEmpty
 }

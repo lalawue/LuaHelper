@@ -15,7 +15,7 @@ import (
 // 	| prefixexp ‘.’ Name
 // 	| prefixexp [‘:’ Name] args
 
-func (p *Parser) parsePrefixExp() ast.Exp {
+func (p *moocParser) parsePrefixExp() ast.Exp {
 	l := p.l
 	var exp ast.Exp
 
@@ -41,7 +41,7 @@ func (p *Parser) parsePrefixExp() ast.Exp {
 	return p.finishPrefixExp(exp, &beginLoc)
 }
 
-func (p *Parser) parseParensExp() ast.Exp {
+func (p *moocParser) parseParensExp() ast.Exp {
 	l := p.l
 	l.NextTokenKind(lexer.TkSepLparen) // (
 	beginLoc := l.GetNowTokenLoc()
@@ -63,7 +63,7 @@ func (p *Parser) parseParensExp() ast.Exp {
 	return exp
 }
 
-func (p *Parser) finishPrefixExp(exp ast.Exp, beginLoc *lexer.Location) ast.Exp {
+func (p *moocParser) finishPrefixExp(exp ast.Exp, beginLoc *lexer.Location) ast.Exp {
 	l := p.l
 	for {
 		switch l.LookAheadKind() {
@@ -114,7 +114,7 @@ func (p *Parser) finishPrefixExp(exp ast.Exp, beginLoc *lexer.Location) ast.Exp 
 }
 
 // functioncall ::=  prefixexp args | prefixexp ‘:’ Name args
-func (p *Parser) finishFuncCallExp(prefixExp ast.Exp) *ast.FuncCallExp {
+func (p *moocParser) finishFuncCallExp(prefixExp ast.Exp) *ast.FuncCallExp {
 	l := p.l
 	beginLoc := l.GetNowTokenLoc()
 	nameExp := p.parseNameExp()
@@ -129,7 +129,7 @@ func (p *Parser) finishFuncCallExp(prefixExp ast.Exp) *ast.FuncCallExp {
 	}
 }
 
-func (p *Parser) parseNameExp() *ast.StringExp {
+func (p *moocParser) parseNameExp() *ast.StringExp {
 	l := p.l
 	if l.LookAheadKind() == lexer.TkSepColon {
 		l.NextToken()
@@ -152,7 +152,7 @@ func (p *Parser) parseNameExp() *ast.StringExp {
 }
 
 // args ::=  ‘(’ [explist] ‘)’ | tableconstructor | LiteralString
-func (p *Parser) parseArgs() (args []ast.Exp) {
+func (p *moocParser) parseArgs() (args []ast.Exp) {
 	l := p.l
 	switch l.LookAheadKind() {
 	case lexer.TkSepLparen: // ‘(’ [explist] ‘)’

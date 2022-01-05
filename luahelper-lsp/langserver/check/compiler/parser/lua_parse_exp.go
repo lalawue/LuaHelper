@@ -6,7 +6,7 @@ import (
 )
 
 // explist ::= exp {‘,’ exp}
-func (p *Parser) parseExpList() []ast.Exp {
+func (p *luaParser) parseExpList() []ast.Exp {
 	l := p.l
 	exps := make([]ast.Exp, 0, 1)
 	exps = append(exps, p.parseExp())
@@ -38,43 +38,12 @@ exp1  ::= exp0 {‘^’ exp2}
 exp0  ::= nil | false | true | Numeral | LiteralString
 		| ‘...’ | functiondef | prefixexp | tableconstructor
 */
-func (p *Parser) parseExp() ast.Exp {
+func (p *luaParser) parseExp() ast.Exp {
 	//return parseExp12(l)
 	return p.parseSubExp(0)
 }
 
-// 通过tokenKind 获取优先级
-func getPriority(tokenKind lexer.TkKind) int {
-	switch tokenKind {
-	case lexer.TkOpPow: // ^
-		return 12
-	case lexer.TkOpMul, lexer.TkOpMod, lexer.TkOpDiv, lexer.TkOpIdiv: // *, %, /, //
-		return 10
-	case lexer.TkOpAdd, lexer.TkOpSub: // +, -
-		return 9
-	case lexer.TkOpConcat: // ..
-		return 8
-	case lexer.TkOpShl, lexer.TkOpShr: // shift,  <<  >>
-		return 7
-	case lexer.TkOpBand: // &
-		return 6
-	case lexer.TkOpBxor: // x ~ y
-		return 5
-	case lexer.TkOpBor: // x | y
-		return 4
-	case lexer.TkOpLt, lexer.TkOpGt, lexer.TkOpNe,
-		lexer.TkOpLe, lexer.TkOpGe, lexer.TkOpEq: // (‘<’ | ‘>’ | ‘<=’ | ‘>=’ | ‘~=’ | ‘==’)
-		return 3
-	case lexer.TkOpAnd: // x and y
-		return 2
-	case lexer.TkOpOr: // x or y
-		return 1
-	}
-
-	return 0
-}
-
-func (p *Parser) parseSubExp(limit int) ast.Exp {
+func (p *luaParser) parseSubExp(limit int) ast.Exp {
 	l := p.l
 	tokenKind := l.LookAheadKind()
 	beginBinoLoc := l.GetHeardTokenLoc()
@@ -128,7 +97,7 @@ func (p *Parser) parseSubExp(limit int) ast.Exp {
 	return exp
 }
 
-func (p *Parser) parseExp0() ast.Exp {
+func (p *luaParser) parseExp0() ast.Exp {
 	l := p.l
 	switch l.LookAheadKind() {
 	case lexer.TkVararg: // ...
@@ -172,7 +141,7 @@ func (p *Parser) parseExp0() ast.Exp {
 	}
 }
 
-func (p *Parser) parseNumberExp() ast.Exp {
+func (p *luaParser) parseNumberExp() ast.Exp {
 	l := p.l
 	_, _, token := l.NextToken()
 	if i, ok := parseInteger(token); ok {
@@ -201,7 +170,7 @@ func (p *Parser) parseNumberExp() ast.Exp {
 
 // functiondef ::= function funcbody
 // funcbody ::= ‘(’ [parlist] ‘)’ block end
-func (p *Parser) parseFuncDefExp(beginLoc *lexer.Location) *ast.FuncDefExp {
+func (p *luaParser) parseFuncDefExp(beginLoc *lexer.Location) *ast.FuncDefExp {
 	l := p.l
 	l.NextTokenKind(lexer.TkSepLparen)                // (
 	parList, parLocList, isVararg := p.parseParList() // [parlist]
@@ -229,7 +198,7 @@ func (p *Parser) parseFuncDefExp(beginLoc *lexer.Location) *ast.FuncDefExp {
 
 // [parlist]
 // parlist ::= namelist [‘,’ ‘...’] | ‘...’
-func (p *Parser) parseParList() (names []string, locVec []lexer.Location, isVararg bool) {
+func (p *luaParser) parseParList() (names []string, locVec []lexer.Location, isVararg bool) {
 	l := p.l
 	switch l.LookAheadKind() {
 	case lexer.TkSepRparen:
@@ -259,7 +228,7 @@ func (p *Parser) parseParList() (names []string, locVec []lexer.Location, isVara
 }
 
 // tableconstructor ::= ‘{’ [fieldlist] ‘}’
-func (p *Parser) parseTableConstructorExp() *ast.TableConstructorExp {
+func (p *luaParser) parseTableConstructorExp() *ast.TableConstructorExp {
 	l := p.l
 	l.NextTokenKind(lexer.TkSepLcurly) // {
 	beginLoc := l.GetNowTokenLoc()
@@ -273,7 +242,7 @@ func (p *Parser) parseTableConstructorExp() *ast.TableConstructorExp {
 		keyExps = keyExps[:1000]
 		valExps = valExps[:1000]
 	}
-	
+
 	return &ast.TableConstructorExp{
 		KeyExps: keyExps,
 		ValExps: valExps,
@@ -282,7 +251,7 @@ func (p *Parser) parseTableConstructorExp() *ast.TableConstructorExp {
 }
 
 // fieldlist ::= field {fieldsep field} [fieldsep]
-func (p *Parser) parseFieldList() (ks, vs []ast.Exp) {
+func (p *luaParser) parseFieldList() (ks, vs []ast.Exp) {
 	l := p.l
 	if l.LookAheadKind() != lexer.TkSepRcurly {
 		k, v := p.parseField()
@@ -303,13 +272,8 @@ func (p *Parser) parseFieldList() (ks, vs []ast.Exp) {
 	return
 }
 
-// fieldsep ::= ‘,’ | ‘;’
-func _isFieldSep(tokenKind lexer.TkKind) bool {
-	return tokenKind == lexer.TkSepComma || tokenKind == lexer.TkSepSemi
-}
-
 // field ::= ‘[’ exp ‘]’ ‘=’ exp | Name ‘=’ exp | exp
-func (p *Parser) parseField() (k, v ast.Exp) {
+func (p *luaParser) parseField() (k, v ast.Exp) {
 	l := p.l
 	if l.LookAheadKind() == lexer.TkSepLbrack {
 		l.NextToken()                      // [

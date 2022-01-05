@@ -6,14 +6,14 @@ import (
 )
 
 // block ::= {stat} [retstat]
-func (p *Parser) parseBlock() *ast.Block {
+func (p *moocParser) parseBlock() *ast.Block {
 	return &ast.Block{
 		Stats:   p.parseStats(),
 		RetExps: p.parseRetExps(),
 	}
 }
 
-func (p *Parser) parseStats() []ast.Stat {
+func (p *moocParser) parseStats() []ast.Stat {
 	stats := make([]ast.Stat, 0, 1)
 	for !isReturnOrBlockEnd(p.l.LookAheadKind()) {
 		stat := p.parseStat()
@@ -26,7 +26,7 @@ func (p *Parser) parseStats() []ast.Stat {
 
 // retstat ::= return [explist] [‘;’]
 // explist ::= exp {‘,’ exp}
-func (p *Parser) parseRetExps() []ast.Exp {
+func (p *moocParser) parseRetExps() []ast.Exp {
 	l := p.l
 	if l.LookAheadKind() != lexer.TkKwReturn {
 		return nil
