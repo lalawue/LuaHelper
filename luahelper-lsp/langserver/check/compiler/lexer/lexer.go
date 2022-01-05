@@ -53,6 +53,9 @@ type Lexer struct {
 	errHandler ErrorHandler // error reporting; or nil
 }
 
+// return <0 for fail, ==0 to stopped, ==1 to advance
+type LexerCallbackAhead func(TkKind) int
+
 // NewLexer 创建一个词法分析器
 func NewLexer(chunk []byte, chunkName string) *Lexer {
 	return &Lexer{
@@ -136,6 +139,40 @@ func (l *Lexer) LookAheadKind() TkKind {
 		l.errorPrint(l.GetPreTokenLoc(), "syntax error near '%s'", l.aheadToken.tokenStr)
 	}
 	return l.aheadToken.tokenKind
+}
+
+// check next tokens in kinds with stopped, otherwise return false
+func (l *Lexer) LookAheadKinds(skip1 TkKind, callback LexerCallbackAhead) bool {
+	backup := *l
+	l.NextTokenKind(skip1)
+	for {
+		token := l.LookAheadKind()
+		ret := callback(token)
+		if ret < 0 {
+			*l = backup
+			return false
+		}
+		if ret == 0 {
+			*l = backup
+			return true
+		} else {
+			l.NextTokenKind(token)
+		}
+	}
+}
+
+func (l *Lexer) LookAheadWith(kinds ...TkKind) bool {
+	backup := *l
+	for _, kind := range kinds {
+		if l.LookAheadKind() == kind {
+			l.NextToken()
+		} else {
+			*l = backup
+			return false
+		}
+	}
+	*l = backup
+	return true
 }
 
 // GetPreTokenLoc get before Token location

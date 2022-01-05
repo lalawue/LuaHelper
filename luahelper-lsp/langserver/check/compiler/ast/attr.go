@@ -10,4 +10,6 @@ const (
 	RDKTOCLOSE LocalAttr = 1
 	// RDKCONST const attr
 	RDKCONST LocalAttr = 2
+	// VDKEXPORT export attr
+	VDKEXPORT LocalAttr = 3
 )

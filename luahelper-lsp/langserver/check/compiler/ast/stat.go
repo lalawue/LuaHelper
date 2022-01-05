@@ -51,6 +51,7 @@ type GotoStat struct {
 // DoStat do代码块
 // do block end
 type DoStat struct {
+	Stype lexer.TkKind
 	Block *Block
 	Loc   lexer.Location
 }
@@ -114,6 +115,7 @@ type AssignStat struct {
 	VarList []Exp
 	ExpList []Exp
 	Loc     lexer.Location
+	Attr    LocalAttr
 }
 
 // LocalVarDeclStat 局部变量定义
@@ -123,7 +125,7 @@ type AssignStat struct {
 type LocalVarDeclStat struct {
 	NameList   []string
 	VarLocList []lexer.Location // 所有变量的位置信息
-	AttrList   []LocalAttr     // 变量的属性
+	AttrList   []LocalAttr      // 变量的属性
 	ExpList    []Exp
 	Loc        lexer.Location
 }
@@ -139,5 +141,41 @@ type LocalFuncDefStat struct {
 // IllegalStat Illegal stat token
 type IllegalStat struct {
 	Name string
+	Loc  lexer.Location
+}
+
+/** stat below for moocscript only
+ */
+
+// class clsname {
+//		fn fnName () {
+//		}
+// }
+type ClassDefStat struct {
+	SType lexer.TkKind      // 可以是 class，struct 或者 extension
+	Super *NameExp          // super class name
+	Name  *LocalVarDeclStat // 包装为一个 local table
+	List  []Stat
+	Loc   lexer.Location // 整体类的位置信息
+}
+
+// import "lpeg"
+// import lpeg from "lpeg"
+// import P, R, S from "lpeg" {}
+// import p, r, s from "lpeg" { P, R, S }
+// import insert, remove from table {}
+type ImportDefStat struct {
+	Lib  *FuncCallStat     // require("lpeg")
+	Name *LocalVarDeclStat // local R, P, S = require("lpeg").R, require("lpeg").P, require("lpeg").S
+}
+
+// export *
+type ExportAllStat struct {
 	Loc lexer.Location
+}
+
+type SwitchStat struct {
+	Name *LocalVarDeclStat // 包装为一个 local table
+	Case *IfStat
+	Loc  lexer.Location
 }

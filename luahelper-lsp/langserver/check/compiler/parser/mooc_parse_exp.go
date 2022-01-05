@@ -97,6 +97,17 @@ func (p *moocParser) parseSubExp(limit int) ast.Exp {
 	return exp
 }
 
+func lookAheadAnonymousFnDef(tk lexer.TkKind) int {
+	switch tk {
+	case lexer.TkIdentifier, lexer.TkSepComma:
+		return 1
+	case lexer.TkKwIn:
+		return 0
+	default:
+		return -1
+	}
+}
+
 func (p *moocParser) parseExp0() ast.Exp {
 	l := p.l
 	switch l.LookAheadKind() {
@@ -131,11 +142,16 @@ func (p *moocParser) parseExp0() ast.Exp {
 	case lexer.TkNumber: // Numeral
 		return p.parseNumberExp()
 	case lexer.TkSepLcurly: // tableconstructor
-		return p.parseTableConstructorExp()
-	case lexer.TkKwFunction: // functiondef
+		if l.LookAheadKinds(lexer.TkSepLcurly, lookAheadAnonymousFnDef) {
+			beginLoc := l.GetNowTokenLoc()
+			return p.parseFuncDefExp(true, &beginLoc)
+		} else {
+			return p.parseTableConstructorExp()
+		}
+	case lexer.TkKwFn: // functiondef
 		l.NextToken()
 		beginLoc := l.GetNowTokenLoc()
-		return p.parseFuncDefExp(&beginLoc)
+		return p.parseFuncDefExp(false, &beginLoc)
 	default: // prefixexp
 		return p.parsePrefixExp()
 	}
@@ -170,18 +186,27 @@ func (p *moocParser) parseNumberExp() ast.Exp {
 
 // functiondef ::= function funcbody
 // funcbody ::= ‘(’ [parlist] ‘)’ block end
-func (p *moocParser) parseFuncDefExp(beginLoc *lexer.Location) *ast.FuncDefExp {
+func (p *moocParser) parseFuncDefExp(isAnonymous bool, beginLoc *lexer.Location) *ast.FuncDefExp {
 	l := p.l
-	l.NextTokenKind(lexer.TkSepLparen)                // (
+	if isAnonymous {
+		l.NextTokenKind(lexer.TkSepLcurly)
+	} else {
+		l.NextTokenKind(lexer.TkSepLparen) // (
+	}
 	parList, parLocList, isVararg := p.parseParList() // [parlist]
-	l.NextTokenKind(lexer.TkSepRparen)                // )
+	if isAnonymous {
+		l.NextTokenKind(lexer.TkKwIn)
+	} else {
+		l.NextTokenKind(lexer.TkSepRparen) // )
+		l.NextTokenKind(lexer.TkSepLcurly) // {
+	}
 
 	blockBeginLoc := l.GetHeardTokenLoc()
 	block := p.parseBlock() // block
 	blockEndLoc := l.GetNowTokenLoc()
 	block.Loc = lexer.GetRangeLoc(&blockBeginLoc, &blockEndLoc)
 
-	l.NextTokenKind(lexer.TkKwEnd) // end
+	l.NextTokenKind(lexer.TkSepRcurly) // }
 
 	endLoc := l.GetNowTokenLoc()
 	loc := lexer.GetRangeLoc(beginLoc, &endLoc)
@@ -281,6 +306,27 @@ func (p *moocParser) parseField() (k, v ast.Exp) {
 		l.NextTokenKind(lexer.TkSepRbrack) // ]
 		l.NextTokenKind(lexer.TkOpAssign)  // =
 		v = p.parseExp()                   // exp
+		return
+	}
+
+	if l.LookAheadWith(lexer.TkString, lexer.TkOpAssign) || l.LookAheadWith(lexer.TkNumber, lexer.TkOpAssign) {
+		k = p.parseExp()                  // [exp]
+		l.NextTokenKind(lexer.TkOpAssign) // =
+		v = p.parseExp()                  // exp
+		return
+	}
+
+	if l.LookAheadWith(lexer.TkOpAssign, lexer.TkIdentifier) {
+		l.NextTokenKind(lexer.TkOpAssign) // =
+		_, name := l.NextIdentifier()
+		k = &ast.StringExp{
+			Str: name,
+			Loc: l.GetNowTokenLoc(),
+		}
+		v = &ast.NameExp{
+			Name: name,
+			Loc:  l.GetNowTokenLoc(),
+		}
 		return
 	}
 

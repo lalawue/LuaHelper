@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"luahelper-lsp/langserver/check/compiler/ast"
 	"luahelper-lsp/langserver/check/compiler/lexer"
 )
@@ -15,11 +16,18 @@ func (p *moocParser) parseBlock() *ast.Block {
 
 func (p *moocParser) parseStats() []ast.Stat {
 	stats := make([]ast.Stat, 0, 1)
-	for !isReturnOrBlockEnd(p.l.LookAheadKind()) {
+	for !p.isReturnOrBlockEnd(p.l.LookAheadKind()) {
 		stat := p.parseStat()
 		if _, ok := stat.(*ast.EmptyStat); !ok {
 			stats = append(stats, stat)
 		}
+	}
+	current := p.scopes.current()
+	if current != nil && current.scope == pscope_lo && current.count > 0 {
+		stats = append(stats, &ast.LabelStat{
+			Name: fmt.Sprintf("__continue%d", p.scopes.checkStackIndex(0).count),
+			Loc:  p.l.GetNowTokenLoc(),
+		})
 	}
 	return stats
 }
@@ -32,10 +40,14 @@ func (p *moocParser) parseRetExps() []ast.Exp {
 		return nil
 	}
 
+	current := p.scopes.current()
+	if current != nil && (current.scope == pscope_do || current.scope == pscope_gu) {
+		current.count = 1
+	}
+
 	l.NextToken()
 	switch l.LookAheadKind() {
-	case lexer.TkEOF, lexer.TkKwEnd,
-		lexer.TkKwElse, lexer.TkKwElseif, lexer.TkKwUntil:
+	case lexer.TkEOF, lexer.TkSepRcurly, lexer.TkKwCase, lexer.TkKwDefault:
 		return []ast.Exp{}
 	case lexer.TkSepSemi:
 		l.NextToken()
@@ -49,10 +61,9 @@ func (p *moocParser) parseRetExps() []ast.Exp {
 	}
 }
 
-func isReturnOrBlockEnd(tokenKind lexer.TkKind) bool {
+func (p *moocParser) isReturnOrBlockEnd(tokenKind lexer.TkKind) bool {
 	switch tokenKind {
-	case lexer.TkKwReturn, lexer.TkEOF, lexer.TkKwEnd,
-		lexer.TkKwElse, lexer.TkKwElseif, lexer.TkKwUntil:
+	case lexer.TkKwReturn, lexer.TkEOF, lexer.TkSepRcurly, lexer.TkKwCase, lexer.TkKwDefault:
 		return true
 	}
 	return false
