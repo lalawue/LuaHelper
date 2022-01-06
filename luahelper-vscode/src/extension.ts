@@ -27,6 +27,7 @@ import {
 let luadoc = require('../client/3rd/vscode-lua-doc/extension.js');
 
 const LANGUAGE_ID = 'lua';
+const LANGUAGE_MID = 'mooc';
 
 export let savedContext: vscode.ExtensionContext;
 let client: LanguageClient;
@@ -79,6 +80,7 @@ export function activate(context: vscode.ExtensionContext) {
     savedContext.subscriptions.push(vscode.commands.registerCommand("LuaHelper.setFormatConfig", setFormatConfig));
 
     savedContext.subscriptions.push(vscode.languages.setLanguageConfiguration("lua", new LuaLanguageConfiguration()));
+    savedContext.subscriptions.push(vscode.languages.setLanguageConfiguration("mooc", new LuaLanguageConfiguration()));
 
     // 公共变量赋值
     let pkg = require(context.extensionPath + "/package.json");
@@ -115,7 +117,11 @@ function onDidChangeTextDocument(event: vscode.TextDocumentChangeEvent) {
 }
 
 function onDidChangeActiveTextEditor(editor: vscode.TextEditor | undefined) {
-    if (editor && editor.document.languageId === LANGUAGE_ID && client) {
+    if (editor && editor.document.languageId === LANGUAGE_ID) {
+        activeEditor = editor as vscode.TextEditor;
+        Annotator.requestAnnotators(activeEditor, client);
+    }
+    else if (editor && editor.document.languageId === LANGUAGE_MID) {
         activeEditor = editor as vscode.TextEditor;
         Annotator.requestAnnotators(activeEditor, client);
     }
@@ -191,6 +197,7 @@ async function doStartServer() {
     // 定义所有的监控文件后缀的关联
     var filesWatchers: vscode.FileSystemWatcher[] = new Array<vscode.FileSystemWatcher>();
     filesWatchers.push(vscode.workspace.createFileSystemWatcher("**/*.lua"));
+    filesWatchers.push(vscode.workspace.createFileSystemWatcher("**/*.mooc"));
 
     // 获取其他文件关联为lua的配置
     let fileAssociationsConfig = vscode.workspace.getConfiguration("files.associations", null);
@@ -198,8 +205,8 @@ async function doStartServer() {
         for (const key of Object.keys(fileAssociationsConfig)) {
             if (fileAssociationsConfig.hasOwnProperty(key)) {
                 let strValue = <string><any>fileAssociationsConfig[key];
-                if (strValue === "lua") {
-                    // 如果映射为lua文件
+                if (strValue === "lua" || strValue == "mooc") {
+                    // 如果映射为lua或mooc文件
                     filesWatchers.push(vscode.workspace.createFileSystemWatcher("**/" + key));
                 }
             }
@@ -210,7 +217,7 @@ async function doStartServer() {
     let ignoreFileOrDirErrArr: string[] | undefined = vscode.workspace.getConfiguration("luahelper.base", null).get("ignoreFileOrDirError");
 
     const clientOptions: LanguageClientOptions = {
-        documentSelector: [{ scheme: 'file', language: LANGUAGE_ID }],
+        documentSelector: [{ scheme: 'file', language: LANGUAGE_ID }, { scheme: 'file', language: LANGUAGE_MID }],
         synchronize: {
             configurationSection: ["luahelper", "files.associations"],
             fileEvents: filesWatchers,

@@ -408,6 +408,19 @@ func (g *GlobalConfig) IntialGlobalVar() {
 	g.CompKeyMap["_G"] = true
 	g.CompKeyMap["local"] = true
 
+	g.CompKeyMap["case"] = true
+	g.CompKeyMap["class"] = true
+	g.CompKeyMap["continue"] = true
+	g.CompKeyMap["default"] = true
+	g.CompKeyMap["defer"] = true
+	g.CompKeyMap["export"] = true
+	g.CompKeyMap["extension"] = true
+	g.CompKeyMap["fn"] = true
+	g.CompKeyMap["from"] = true
+	g.CompKeyMap["guard"] = true
+	g.CompKeyMap["struct"] = true
+	g.CompKeyMap["switch"] = true
+
 	g.CompSnippetMap = map[string]SnippetItem{}
 	g.CompSnippetMap["else"] = SnippetItem{
 		InsertText: "else\n\t",
@@ -524,7 +537,7 @@ func (g *GlobalConfig) handleNotJSONCheckFlag(checkFlagList []bool, ignoreFileOr
 	g.IgnoreHandleFolderVec = make([]string, 0, 2)
 	g.IgnoreHandleFileVec = make([]string, 0, 2)
 	for _, fileOrFloder := range ignoreFileOrDir {
-		if strings.HasSuffix(fileOrFloder, ".lua") {
+		if strings.HasSuffix(fileOrFloder, ".lua") || strings.HasSuffix(fileOrFloder, ".mooc") {
 			g.IgnoreHandleFileVec = append(g.IgnoreHandleFileVec, fileOrFloder)
 		} else {
 			g.IgnoreHandleFolderVec = append(g.IgnoreHandleFolderVec, fileOrFloder)
@@ -535,7 +548,7 @@ func (g *GlobalConfig) handleNotJSONCheckFlag(checkFlagList []bool, ignoreFileOr
 	g.IgnoreErrorFloderVec = make([]string, 0, 2)
 	g.IgnoreErrorFileVec = make([]string, 0, 2)
 	for _, fileOrFloder := range ignoreFileOrDirErr {
-		if strings.HasSuffix(fileOrFloder, ".lua") {
+		if strings.HasSuffix(fileOrFloder, ".lua") || strings.HasSuffix(fileOrFloder, ".mooc") {
 			g.IgnoreErrorFileVec = append(g.IgnoreErrorFileVec, fileOrFloder)
 		} else {
 			g.IgnoreErrorFloderVec = append(g.IgnoreErrorFloderVec, fileOrFloder)
@@ -666,7 +679,7 @@ func (g *GlobalConfig) ReadConfig(strDir, configFileName string, checkFlagList [
 	g.IgnoreHandleFolderVec = make([]string, 0, 2)
 	g.IgnoreHandleFileVec = make([]string, 0, 2)
 	for _, fileOrFloder := range jsonConfig.IgnoreFileOrFloder {
-		if strings.HasSuffix(fileOrFloder, ".lua") {
+		if strings.HasSuffix(fileOrFloder, ".lua") || strings.HasSuffix(fileOrFloder, ".mooc") {
 			g.IgnoreHandleFileVec = append(g.IgnoreHandleFileVec, fileOrFloder)
 		} else {
 			g.IgnoreHandleFolderVec = append(g.IgnoreHandleFolderVec, fileOrFloder)
@@ -688,7 +701,7 @@ func (g *GlobalConfig) ReadConfig(strDir, configFileName string, checkFlagList [
 	g.IgnoreErrorFloderVec = make([]string, 0, 2)
 	g.IgnoreErrorFileVec = make([]string, 0, 2)
 	for _, fileOrFloder := range jsonConfig.IgnoreFileErr {
-		if strings.HasSuffix(fileOrFloder, ".lua") {
+		if strings.HasSuffix(fileOrFloder, ".lua") || strings.HasSuffix(fileOrFloder, ".mooc") {
 			g.IgnoreErrorFileVec = append(g.IgnoreErrorFileVec, fileOrFloder)
 		} else {
 			g.IgnoreErrorFloderVec = append(g.IgnoreErrorFloderVec, fileOrFloder)
@@ -927,6 +940,10 @@ func (g *GlobalConfig) isIgnoreFile(path string) bool {
 func (g *GlobalConfig) IsHandleAsLua(strFile string) bool {
 	// 判断直接以.lua为后缀的文g.GetDirManager().GetMainDir()件
 	if ok := strings.HasSuffix(strFile, ".lua"); ok {
+		return true
+	}
+
+	if ok := strings.HasSuffix(strFile, ".mooc"); ok {
 		return true
 	}
 

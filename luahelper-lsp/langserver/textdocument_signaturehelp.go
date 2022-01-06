@@ -18,7 +18,7 @@ func (l *LspServer) TextDocumentSignatureHelp(ctx context.Context, vs lsp.TextDo
 	}
 
 	pos := vs.Position
-	varStruct := getVarStruct(comResult.contents, comResult.offset, pos.Line, pos.Character)
+	varStruct := getVarStruct(comResult.contents, comResult.offset, pos.Line, pos.Character, comResult.strFile)
 	if !varStruct.ValidFlag {
 		return
 	}

@@ -1,0 +1,190 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "moocscript",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#constants"
+		},
+		{
+			"include": "#number"
+		},
+		{
+			"include": "#globals"
+		},
+		{
+			"include": "#invalid"
+		},
+		{
+			"include": "#classname"
+		},
+		{
+			"include": "#subname"
+		},
+		{
+			"include": "#ffi_cdef"
+		},
+		{
+			"include": "#strings_double"
+		},
+		{
+			"include": "#strings_quote"
+		},
+		{
+			"include": "#strings_long"
+		},
+		{
+			"include": "#comment_long"
+		},
+		{
+			"include": "#comment_line"
+		},
+		{
+			"include": "#fn_call"
+		},
+		{
+			"include": "#fn_def"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.control.moocscript",
+				"match": "\\b(and|break|case|class|continue|default|defer|do|else|elseif|export|extension|fn|from|for|goto|guard|if|import|in|local|not|or|repeat|return|static|struct|switch|until|while)\\b"
+			}]
+		},
+		"constants": {
+			"patterns": [{
+				"name": "constant.language.moocscript",
+				"match": "\\b(false|nil|true|self)\\b"
+			}]
+		},
+		"number": {
+			"patterns": [
+				{
+					"name": "constant.numeric.moocscript",
+					"match": "0x[0-9a-fA-F]++[uU]?+[lL]{,2}|\\.[0-9]++[eE]\\-[0-9]++|[0-9]++\\.[0-9]++|\\.[0-9]++|(?=[^_a-zA-Z])[0-9]++[uU]?+[lL]{,2}"
+				}
+			]			
+		},
+		"globals": {
+			"patterns": [{
+				"name": "support.class.moocscript",
+				"match": "\\b(_G|_VERSION|_ENV|assert|bit32|collectgarbage|coroutine|debug|dofile|error|getfenv|getmetatable|io|ipairs|jit|load|loadfile|loadstring|math|module|next|os|package|pairs|pcall|print|rawequal|rawget|rawlen|rawset|require|select|setfenv|setmetatable|string|table|tonumber|tostring|type|unpack|xpcall)\\b"
+			}]
+		},
+		"invalid": {
+			"patterns": [{
+				"name": "invalid.illegal.moocscript",
+				"match": "\\b(end|function|then)\\b"
+			}]
+		},
+		"classname": {
+			"patterns": [{
+				"name": "markup.bold.moocscript",
+				"match": "(?<=\\W+|^)_*+[A-Z]++[_0-9a-zA-Z]*+(?=\\(??)"
+			}]
+		},
+		"subname": {
+			"patterns": [{
+				"name": "variable.parameter.moocscript",
+				"match": "\\.[\\._0-9a-zA-Z]++(?=[^\\(])"
+			}]			
+		},
+		"ffi_cdef": {
+			"begin": "(?<=\\.cdef\\s*\\()\\s*(\\[(=*)\\[)",
+			"beginCaptures": {
+				"0": {
+					"name": "string.quoted.other.multiline.moocscript"
+				},
+				"1": {
+					"name": "punctuation.definition.string.begin.moocscript"
+				}
+			},
+			"contentName": "meta.embedded.moocscript",
+			"end": "(\\]\\2\\])",
+			"endCaptures": {
+				"0": {
+					"name": "string.quoted.other.multiline.moocscript"
+				},
+				"1": {
+					"name": "punctuation.definition.string.end.moocscript"
+				}
+			},
+			"patterns": [
+				{
+					"include": "source.c"
+				}
+			]
+		},
+		"strings_double": {
+			"name": "string.quoted.double.moocscript",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.moocscript",
+					"match": "\\\\."
+				}
+			]
+		},
+		"strings_quote": {
+			"name": "string.quoted.single.moocscript",
+			"begin": "'",
+			"end": "'",
+			"patterns": [
+				{
+					"name": "constant.character.escape.moocscript",
+					"match": "\\\\."
+				}
+			]
+		},
+		"strings_long": {
+			"name": "string.quoted.single.moocscript",
+			"begin": "\\[(=*)\\[",
+			"end": "\\]\\1\\]",
+			"patterns": [
+				{
+					"name": "constant.character.escape.moocscript",
+					"match": "\\\\."
+				}
+			]
+		},
+		"comment_long": {
+			"name": "comment.line.double-dash.moocscript",
+			"begin": "\\-\\-\\[(=*)\\[",
+			"end": "\\]\\1\\]",
+			"patterns": [
+				{
+					"name": "comment.line.double-dash.moocscript",
+					"match": "\\\\."
+				}
+			]
+		},
+        "comment_line": {
+            "patterns": [{
+                "name": "comment.line.double-dash.moocscript",
+                "match": "--.*"
+            }]
+        },
+		"fn_call": {
+			"patterns": [
+				{
+					"name": "constant.character.escape.moocscript",
+					"match": "_*[0-9a-z]++[_0-9a-zA-Z]*+(?=\\()"
+				}
+			]
+		},
+		"fn_def": {
+			"patterns": [
+				{
+					"name": "constant.character.escape.moocscript",
+					"match": "(?<=fn\\s*?)_*[0-9a-z]++[_0-9a-zA-Z\\.:]*+(?=\\()"
+				}
+			]
+		}
+	},
+	"scopeName": "source.mooc"
+}

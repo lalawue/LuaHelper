@@ -1,12 +1,12 @@
 {
     "name": "luahelper",
-    "displayName": "Lua",
-    "description": "LuaHelper, Intellisense, Linting, Debugging, Code formatting, High-performance, and more.",
+    "displayName": "MoocHelper",
+    "description": "MoocHelper, Intellisense, Linting, Debugging, Code formatting, High-performance, and more.",
     "version": "0.2.10",
-    "publisher": "yinfei",
+    "publisher": "lalawue",
     "author": {
-        "name": "yinfei",
-        "email": "313745207@qq.com"
+        "name": "lalawue",
+        "email": "kio_34@163.com"
     },
     "license": "BSD-3-Clause",
     "keywords": [
@@ -21,15 +21,18 @@
         "luacheck",
         "lua format",
         "luaformat",
-        "emmylua"
+        "emmylua",
+        "lua swift",
+        "moocscript",
+        "moocscript helper"
     ],
-    "icon": "images/luahelper.png",
+    "icon": "images/icon.png",
     "repository": {
         "type": "git",
-        "url": "https://github.com/Tencent/LuaHelper.git"
+        "url": "https://github.com/lalawue/mooncake.git"
     },
     "bugs": {
-        "url": "https://github.com/Tencent/LuaHelper.git"
+        "url": "https://github.com/lalawue/mooncake.git"
     },
     "engines": {
         "vscode": "^1.53.0"
@@ -43,6 +46,7 @@
     ],
     "activationEvents": [
         "onLanguage:lua",
+        "onLanguage:mooc",
         "onWebviewPanel:luahelper-doc",
         "onCommand:extension.luahelper.doc",
         "onDebug"
@@ -74,7 +78,11 @@
         "snippets": [
             {
                 "language": "lua",
-                "path": "./snippets/snippets.json"
+                "path": "./snippets/lua-snippets.json"
+            },
+            {
+                "language": "mooc",
+                "path": "./snippets/moocscript-snippets.json"
             }
         ],
         "languages": [
@@ -86,7 +94,17 @@
                 "aliases": [
                     "Lua"
                 ],
-                "configuration": "./language-configuration.json"
+                "configuration": "./configuration/lua-configuration.json"
+            },
+            {
+                "id": "mooc",
+                "extensions": [
+                    ".mooc"
+                ],
+                "aliases": [
+                    "MoocScript"
+                ],
+                "configuration": "./configuration/moocscript-configuration.json"
             }
         ],
         "grammars": [
@@ -94,6 +112,11 @@
                 "language": "lua",
                 "scopeName": "source.lua",
                 "path": "./syntaxes/lua.json"
+            },
+            {
+                "language": "mooc",
+                "scopeName": "source.mooc",
+                "path": "./syntaxes/moocscript.json"
             }
         ],
         "breakpoints": [
@@ -329,7 +352,6 @@
                     "default": "#569CD6",
                     "description": "%luahelper.colors.annotatetype%"
                 },
-
                 "luahelper.base.rootdir": {
                     "type": "string",
                     "default": "./",
@@ -409,7 +431,6 @@
                     "type": "boolean",
                     "description": "%luahelper.show.online%"
                 },
-               
                 "luahelper.base.showCostTime": {
                     "default": false,
                     "scope": "resource",
@@ -613,7 +634,7 @@
                     "scope": "resource",
                     "type": "integer",
                     "markdownDescription": "%luahelper.format.line_breaks_after_function_body%"
-                },             
+                },
                 "luahelper.Warn.AllEnable": {
                     "default": true,
                     "scope": "resource",

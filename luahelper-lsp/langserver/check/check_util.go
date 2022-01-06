@@ -583,7 +583,7 @@ func ExpToDefineVarStruct(exp ast.Exp) (defineVar common.DefineVarStruct) {
 }
 
 // StrToDefineVarStruct change str to defineVarStruct
-func StrToDefineVarStruct(str string) (defineVar common.DefineVarStruct) {
+func StrToDefineVarStruct(str string, strFile string) (defineVar common.DefineVarStruct) {
 	defineVar.ValidFlag = false
 
 	_, ok1 := common.GConfig.CompKeyMap[str]
@@ -596,7 +596,7 @@ func StrToDefineVarStruct(str string) (defineVar common.DefineVarStruct) {
 		return defineVar
 	}
 
-	newParser := parser.CreateParser([]byte(str), "")
+	newParser := parser.CreateParser([]byte(str), strFile)
 	exp := newParser.BeginAnalyzeExp()
 	errList := newParser.GetErrList()
 	if exp == nil || len(errList) > 0 {

@@ -51,7 +51,7 @@ func (l *LspServer) TextDocumentDefine(ctx context.Context, vs lsp.TextDocumentP
 	}
 
 	// 3) 其他的查找定义
-	varStruct := getVarStruct(fileRequest.contents, fileRequest.offset, fileRequest.pos.Line, fileRequest.pos.Character)
+	varStruct := getVarStruct(fileRequest.contents, fileRequest.offset, fileRequest.pos.Line, fileRequest.pos.Character, fileRequest.strFile)
 	if !varStruct.ValidFlag || len(varStruct.StrVec) == 0 {
 		log.Error("TextDocumentDefine not valid")
 		return

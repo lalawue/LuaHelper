@@ -1,0 +1,116 @@
+{
+    "import": {
+        "prefix": "import",
+        "body": "import ${1:lib} from \"${2:lib}\" { ${0:lib} }",
+        "description": "import variable from \"lib\" { name }",
+        "scope": "source.mooc"
+    },
+    "local": {
+        "prefix": "local",
+        "body": "local ${1:var} = ${0:nil}",
+        "description": "local variable = ...",
+        "scope": "source.mooc"
+    },
+    "export": {
+        "prefix": "export",
+        "body": "export ${1:var} = ${0:nil}",
+        "description": "export variable = ...",
+        "scope": "source.mooc"
+    },
+    "if": {
+        "prefix": "if",
+        "body": "if ${1:condition} {\n\t${2:-- body}\n} ${0:}",
+        "description": "if",
+        "scope": "source.mooc"
+    },
+    "elseif": {
+        "prefix": "elseif",
+        "body": "elseif ${1:condition} {\n\t${2:-- body}\n} ${0:}",
+        "description": "elseif",
+        "scope": "source.mooc"
+    },
+    "else": {
+        "prefix": "else",
+        "body": "else {\n\t${1:-- body}\n} ${0:}",
+        "description": "else",
+        "scope": "source.mooc"
+    },
+    "guard": {
+        "prefix": "guard",
+        "body": "guard ${1:} else {\n\t${0:-- body}\n}",
+        "description": "else",
+        "scope": "source.mooc"
+    },
+    "defer": {
+        "prefix": "defer",
+        "body": "defer {\n\t${0:-- body}\n}",
+        "description": "else",
+        "scope": "source.mooc"
+    },  
+    "for": {
+        "prefix": "for",
+        "body": "for ${1:i} = ${2:1}, ${3:10} {\n\t${4:-- body}\n} ${0:}",
+        "description": "for i = 1, n { }",
+        "scope": "source.mooc"
+    },
+    "fori": {
+        "prefix": "fori",
+        "body": "for ${1:i}, ${2:v} in ipairs(${3:tbl}) {\n\t${4:-- body}\n} ${0:}",
+        "description": "for i, v in ipairs(table) { }",
+        "scope": "source.mooc"
+    },
+    "forp": {
+        "prefix": "forp",
+        "body": "for ${1:k}, ${2:v} in pairs(${3:tbl}) {\n\t${4:-- body}\n} ${0:}",
+        "description": "for k, v in pairs(table) do end",
+        "scope": "source.mooc"
+    },
+    "while": {
+        "prefix": "while",
+        "body": "while ${1:condition} {\n\t${2:-- body}\n} ${0:}",
+        "description": "while",
+        "scope": "source.mooc"
+    },
+    "repeat": {
+        "prefix": "repeat",
+        "body": "repeat {\n\t${0:-- body}\n} until ${1:condition}",
+        "description": "repeat",
+        "scope": "source.mooc"
+    },
+    "function": {
+        "prefix": "fn",
+        "body": "fn ${1:func}(${2:a}) {\n\t${3:-- body}\n} ${0:}",
+        "description": "fn",
+        "scope": "source.mooc"
+    },
+    "class": {
+        "prefix": "class",
+        "body": "class ${1:Class} {\n\t${0:-- body}\n}",
+        "description": "class",
+        "scope": "source.mooc"
+    },
+    "classsuper": {
+        "prefix": "classsuper",
+        "body": "class ${1:Class} : ${2:Super} {\n\t${0:-- body}\n}",
+        "description": "class",
+        "scope": "source.mooc"
+    },
+    "struct": {
+        "prefix": "struct",
+        "body": "struct ${1:Struct} {\n\t${0:-- body}\n}",
+        "description": "struct",
+        "scope": "source.mooc"
+    },
+    "extension": {
+        "prefix": "extension",
+        "body": "extension ${1:Name} {\n\t${0:-- body}\n}",
+        "description": "extension",
+        "scope": "source.mooc"
+    },
+    "extensionp": {
+        "prefix": "extensionp",
+        "body": "extension ${1:Name} : ${2:Mixed}{\n\t${0:-- body}\n}",
+        "description": "extension",
+        "scope": "source.mooc"
+    },
+}

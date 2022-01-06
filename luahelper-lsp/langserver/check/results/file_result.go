@@ -296,8 +296,24 @@ func (f *FileResult) CheckReferFile(referInfo *common.ReferInfo, allFilesMap map
 			return
 		}
 
+		referLuaFile = strNewFile + ".mooc"
+		matchAllDirFile = dirManager.MatchAllDirReferFile(curFile, referLuaFile)
+		if matchAllDirFile != "" {
+			// 匹配到了
+			referInfo.ReferValidStr = matchAllDirFile
+			return
+		}
+
 		// c) 判断拼接的 init.lua是否存在
 		initFile := strNewFile + "/init.lua"
+		matchAllDirFile = dirManager.MatchAllDirReferFile(curFile, initFile)
+		if matchAllDirFile != "" {
+			// 匹配到了
+			referInfo.ReferValidStr = matchAllDirFile
+			return
+		}
+
+		initFile = strNewFile + "/init.mooc"
 		matchAllDirFile = dirManager.MatchAllDirReferFile(curFile, initFile)
 		if matchAllDirFile != "" {
 			// 匹配到了
@@ -344,6 +360,14 @@ func (f *FileResult) CheckReferFile(referInfo *common.ReferInfo, allFilesMap map
 		return
 	}
 
+	initFile = strNewFile + "/init.mooc"
+	// 如果配置为全路径匹配，尝试模糊匹配路径
+	strBestFileTmp = common.GetBestMatchReferFile(curFile, initFile, allFilesMap)
+	if strBestFileTmp != "" {
+		referInfo.ReferValidStr = strBestFileTmp
+		return
+	}
+
 	if f.checkTerm == CheckTermFirst {
 		// 没有读到文件，报错
 		errStr := fmt.Sprintf("%s file error, not find file:%s", referInfo.ReferTypeStr, strFile)
@@ -382,6 +406,13 @@ func (f *FileResult) isReferFileContainFiles(needReferFileMap map[string]struct{
 
 			if !strings.HasSuffix(strFile, ".lua") {
 				strTemp := strFile + ".lua"
+				if strings.HasSuffix(oneStr, strTemp) {
+					return true
+				}
+			}
+
+			if !strings.HasSuffix(strFile, ".mooc") {
+				strTemp := strFile + ".mooc"
 				if strings.HasSuffix(oneStr, strTemp) {
 					return true
 				}

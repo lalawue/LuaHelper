@@ -90,7 +90,7 @@ func (l *LspServer) TextDocumentComplete(ctx context.Context, vs lsp.CompletionP
 		preStr = "#"
 	} else {
 		// 5.2) 按照.进行分割字符串
-		compVar, flag = getComplelteStruct(preCompStr, (int)(comResult.pos.Line), (int)(comResult.pos.Character))
+		compVar, flag = getComplelteStruct(preCompStr, (int)(comResult.pos.Line), (int)(comResult.pos.Character), comResult.strFile)
 		if !flag {
 			return
 		}
@@ -342,7 +342,7 @@ func (l *LspServer) judgeCompeleteFile(strFile string, contents []byte, offset i
 }
 
 // 字符串进行拆分
-func getComplelteStruct(str string, line, character int) (completeVar common.CompleteVarStruct, flag bool) {
+func getComplelteStruct(str string, line, character int, strFile string) (completeVar common.CompleteVarStruct, flag bool) {
 	lastEmptyFlag := false
 	colonFlag := false
 	lastCh := str[len(str)-1]
@@ -427,7 +427,7 @@ func getComplelteStruct(str string, line, character int) (completeVar common.Com
 		}
 	}
 
-	varStruct := check.StrToDefineVarStruct(strContent)
+	varStruct := check.StrToDefineVarStruct(strContent, strFile)
 	if !varStruct.ValidFlag {
 		return
 	}

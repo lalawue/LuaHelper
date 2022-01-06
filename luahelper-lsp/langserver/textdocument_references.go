@@ -9,7 +9,7 @@ import (
 )
 
 // TextDocumentReferences 文件中查找符合的所有的引用
-func (l *LspServer)TextDocumentReferences(ctx context.Context, vs protocol.ReferenceParams) (locList []protocol.Location, err error) {
+func (l *LspServer) TextDocumentReferences(ctx context.Context, vs protocol.ReferenceParams) (locList []protocol.Location, err error) {
 	comResult := l.beginFileRequest(vs.TextDocument.URI, vs.Position)
 	if !comResult.result {
 		return
@@ -20,7 +20,7 @@ func (l *LspServer)TextDocumentReferences(ctx context.Context, vs protocol.Refer
 	}
 
 	project := l.getAllProject()
-	varStruct := getVarStruct(comResult.contents, comResult.offset, comResult.pos.Line, comResult.pos.Character)
+	varStruct := getVarStruct(comResult.contents, comResult.offset, comResult.pos.Line, comResult.pos.Character, comResult.strFile)
 	if !varStruct.ValidFlag {
 		log.Error("TextDocumentReferences not valid")
 		return

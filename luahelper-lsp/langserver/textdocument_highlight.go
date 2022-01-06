@@ -29,7 +29,7 @@ func (l *LspServer) TextDocumentHighlight(ctx context.Context, vs lsp.TextDocume
 	}
 
 	project := l.getAllProject()
-	varStruct := getVarStruct(comResult.contents, comResult.offset, comResult.pos.Line, comResult.pos.Character)
+	varStruct := getVarStruct(comResult.contents, comResult.offset, comResult.pos.Line, comResult.pos.Character, comResult.strFile)
 	if !varStruct.ValidFlag {
 		log.Error("TextDocumentHighlight varStruct.ValidFlag not valid")
 		return

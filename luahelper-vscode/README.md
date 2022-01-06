@@ -1,3 +1,4 @@
+MoocHelper is a LSP for [MoonCake](https://github.com/lalawue/mooncake) and Lua programming language，Modified from [LuaHelper](https://github.com/Tencent/LuaHelper).
 
 # LuaHelper Guide
 

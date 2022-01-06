@@ -93,7 +93,7 @@ func (l *LspServer) getHoverStr(comResult commFileRequest) (lableStr, docStr, lu
 	}
 
 	// 3) 普通查找定义悬浮
-	varStruct := getVarStruct(comResult.contents, comResult.offset, comResult.pos.Line, comResult.pos.Character)
+	varStruct := getVarStruct(comResult.contents, comResult.offset, comResult.pos.Line, comResult.pos.Character, comResult.strFile)
 	if !varStruct.ValidFlag {
 		log.Error("TextDocumentDefine not valid")
 		return

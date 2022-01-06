@@ -199,6 +199,7 @@ func getOpenFileStr(contents []byte, offset int, character int) []string {
 	// 1) 引入其他文件的正则
 	regDofile := regexp.MustCompile(`dofile *?\( *?\"[0-9a-zA-Z_/\-]+.lua\" *?\)`)
 	regRequire := regexp.MustCompile(`require *?(\()? *?[\"|\'][0-9a-zA-Z_/\-|.]+[\"|\'] *?(\))?`)
+	regImport := regexp.MustCompile(`import *?[0-9a-zA-Z_/\-]+(, *?[0-9a-zA-Z_/\-]+)*? *?from *?(\()? *?[\"|\'][0-9a-zA-Z_/\-|.]+[\"|\'] *?(\))?`)
 
 	// ""内的内容
 	regFen := regexp.MustCompile(`[\"|\'][0-9a-zA-Z_/\.\-]+[\"|\']`)
@@ -213,6 +214,11 @@ func getOpenFileStr(contents []byte, offset int, character int) []string {
 		importVec = regRequire.FindAllString(lineContents, -1)
 		if len(importVec) > 0 {
 			requireFlag = true
+		} else {
+			importVec = regImport.FindAllString(lineContents, -1)
+			if len(importVec) > 0 {
+				requireFlag = true
+			}
 		}
 	} else {
 		needLuaSuffix = true
@@ -268,6 +274,10 @@ func getOpenFileStr(contents []byte, offset int, character int) []string {
 				strFileTemp = strFileTemp[0 : len(strFileTemp)-4]
 			}
 
+			if needLuaSuffix && strings.HasSuffix(strFileTemp, ".mooc") {
+				strFileTemp = strFileTemp[0 : len(strFileTemp)-5]
+			}
+
 			strFileTemp = strings.Replace(strFileTemp, ".", "/", -1)
 			strOpenFile = strFileTemp
 			break
@@ -279,9 +289,10 @@ func getOpenFileStr(contents []byte, offset int, character int) []string {
 	}
 
 	strModName := strings.TrimSuffix(strOpenFile, ".lua")
-	result := []string{strModName + ".lua", strModName + ".so"}
+	result := []string{strModName + ".lua", strModName + ".mooc", strModName + ".so"}
 	if requireFlag {
 		result = append(result, strModName+"/init.lua")
+		result = append(result, strModName+"/init.mooc")
 	}
 	return result
 }
@@ -378,7 +389,7 @@ func getContentBracketsFlag(contents []byte, offset int) (beforeIndex int, endIn
 }
 
 // getVarStruct 根据内容的坐标信息，解析出对应的表达式结构
-func getVarStruct(contents []byte, offset int, line uint32, character uint32) (varStruct common.DefineVarStruct) {
+func getVarStruct(contents []byte, offset int, line uint32, character uint32, strFile string) (varStruct common.DefineVarStruct) {
 	conLen := len(contents)
 	if offset == conLen {
 		offset = offset - 1
@@ -439,7 +450,7 @@ func getVarStruct(contents []byte, offset int, line uint32, character uint32) (v
 	}
 
 	log.Debug("getVarStruct str=%s", str)
-	varStruct = check.StrToDefineVarStruct(str)
+	varStruct = check.StrToDefineVarStruct(str, strFile)
 	varStruct.Str = str
 	varStruct.PosLine = (int)(line)
 	varStruct.PosCh = (int)(character)
