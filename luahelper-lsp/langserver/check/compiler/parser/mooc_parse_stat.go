@@ -875,19 +875,20 @@ func (p *moocParser) parseFuncName(isStaticAttr bool) (exp ast.Exp, hasColon boo
 	if sp.scope == pscope_cl {
 		exp = &ast.NameExp{
 			Name: sp.name,
-			Loc:  loc,
+			Loc:  beginLoc,
 		}
 		idx := &ast.StringExp{
 			Str: name,
 			Loc: loc,
 		}
-		tableLoc := lexer.GetRangeLoc(&beginLoc, &loc)
+		endTableLoc := l.GetNowTokenLoc()
+		tableLoc := lexer.GetRangeLoc(&beginLoc, &endTableLoc)
 		exp = &ast.TableAccessExp{
 			PrefixExp: exp,
 			KeyExp:    idx,
 			Loc:       tableLoc,
 		}
-		hasColon = true
+		hasColon = !isStaticAttr
 	} else {
 
 		beginTableLoc := l.GetNowTokenLoc()
