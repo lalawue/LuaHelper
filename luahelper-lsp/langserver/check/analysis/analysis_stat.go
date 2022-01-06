@@ -706,7 +706,7 @@ func (a *Analysis) checkLeftAssign(valExp ast.Exp) (needDefine bool, flagG bool,
 			locList = locList[1:]
 		}
 	} else {
-		if splitArray[0] == "self" {
+		if common.IsSelf(a.entryFile, splitArray[0]) {
 			splitArray[0] = a.ChangeSelfToReferVar(splitArray[0], "")
 		}
 

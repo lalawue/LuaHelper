@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"luahelper-lsp/langserver/check/compiler/ast"
 	"luahelper-lsp/langserver/check/compiler/lexer"
 	"luahelper-lsp/langserver/log"
@@ -33,7 +34,9 @@ func (p *moocParser) parseStat() ast.Stat {
 	case lexer.TkSepLabel:
 		return p.parseLabelStat()
 	case lexer.TkKwGoto:
-		return p.parseGotoStat()
+		return p.parseGotoStat(token)
+	case lexer.TkKwContinue:
+		return p.parseGotoStat(token)
 	case lexer.TkKwDo:
 		return p.parseDoStat(token)
 	case lexer.TkKwWhile:
@@ -42,6 +45,10 @@ func (p *moocParser) parseStat() ast.Stat {
 		return p.parseRepeatStat()
 	case lexer.TkKwIf:
 		return p.parseIfStat()
+	case lexer.TkKwGuard:
+		return p.parseGuardStat()
+	case lexer.TkKwSwitch:
+		return p.parseSwitchStat()
 	case lexer.TkKwFor:
 		return p.parseForStat()
 	case lexer.TkKwFn:
@@ -83,7 +90,9 @@ func (p *moocParser) parseEmptyStat() *ast.EmptyStat {
 // break
 func (p *moocParser) parseBreakStat() *ast.BreakStat {
 	p.l.NextTokenKind(lexer.TkKwBreak)
-
+	if p.scopes.checkStackWith(pscope_lo, pscope_fn) == nil {
+		p.insertParserErr(p.l.GetNowTokenLoc(), "break should inside loop for/while/repeat")
+	}
 	return &ast.BreakStat{
 		//Loc: l.GetNowTokenLoc(),
 	}
@@ -102,19 +111,35 @@ func (p *moocParser) parseLabelStat() *ast.LabelStat {
 }
 
 // goto Name
-func (p *moocParser) parseGotoStat() *ast.GotoStat {
-	p.l.NextTokenKind(lexer.TkKwGoto) // goto
-	_, name := p.l.NextIdentifier()   // name
-	return &ast.GotoStat{
-		Name: name,
-		Loc:  p.l.GetNowTokenLoc(),
+func (p *moocParser) parseGotoStat(token lexer.TkKind) *ast.GotoStat {
+	p.l.NextTokenKind(token) // goto
+	if token == lexer.TkKwGoto {
+		_, name := p.l.NextIdentifier() // name
+		return &ast.GotoStat{
+			Name: name,
+			Loc:  p.l.GetNowTokenLoc(),
+		}
+	} else {
+		// continue
+		name := "continue"
+		scope := p.scopes.checkStackWith(pscope_lo, pscope_fn)
+		if scope == nil {
+			p.insertParserErr(p.l.GetNowTokenLoc(), "continue should inside loop for/while/repeat")
+		} else {
+			scope.count = 1
+			name = fmt.Sprintf("__continue%d", p.scopes.checkStackIndex(0).count)
+		}
+		return &ast.GotoStat{
+			Name: name,
+			Loc:  p.l.GetNowTokenLoc(),
+		}
 	}
 }
 
 // do block end
 func (p *moocParser) parseDoStat(token lexer.TkKind) *ast.DoStat {
 	l := p.l
-	l.NextTokenKind(lexer.TkKwDo) // do
+	l.NextTokenKind(token) // do
 	beginLoc := l.GetNowTokenLoc()
 	l.NextTokenKind(lexer.TkSepLcurly) // {
 
@@ -134,11 +159,12 @@ func (p *moocParser) parseDoStat(token lexer.TkKind) *ast.DoStat {
 
 	p.scopes.pop()
 
-	l.NextTokenKind(lexer.TkSepRcurly) // end
+	l.NextTokenKind(lexer.TkSepRcurly) // }
 	endLoc := l.GetNowTokenLoc()
 
 	loc := lexer.GetRangeLoc(&beginLoc, &endLoc)
 	return &ast.DoStat{
+		Stype: token,
 		Block: block,
 		Loc:   loc,
 	}
@@ -149,15 +175,19 @@ func (p *moocParser) parseWhileStat() *ast.WhileStat {
 	l := p.l
 	l.NextTokenKind(lexer.TkKwWhile) // while
 	beginLoc := l.GetNowTokenLoc()
-	exp := p.parseExp()           // exp
-	l.NextTokenKind(lexer.TkKwDo) // do
+	exp := p.parseExp()                // exp
+	l.NextTokenKind(lexer.TkSepLcurly) // {
+
+	p.scopes.push(pscope_lo, "while")
 
 	blockBeginLoc := l.GetHeardTokenLoc()
 	block := p.parseBlock() // block
 	blockEndLoc := l.GetNowTokenLoc()
 	block.Loc = lexer.GetRangeLoc(&blockBeginLoc, &blockEndLoc)
 
-	l.NextTokenKind(lexer.TkKwEnd) // end
+	p.scopes.pop()
+
+	l.NextTokenKind(lexer.TkSepRcurly) // }
 	endLoc := l.GetNowTokenLoc()
 	loc := lexer.GetRangeLoc(&beginLoc, &endLoc)
 
@@ -174,10 +204,18 @@ func (p *moocParser) parseRepeatStat() *ast.RepeatStat {
 	l.NextTokenKind(lexer.TkKwRepeat) // repeat
 	beginLoc := l.GetNowTokenLoc()
 
+	l.NextTokenKind(lexer.TkSepLcurly) // {
+
+	p.scopes.push(pscope_lo, "repeat")
+
 	blockBeginLoc := l.GetHeardTokenLoc()
 	block := p.parseBlock() // block
 	blockEndLoc := l.GetNowTokenLoc()
 	block.Loc = lexer.GetRangeLoc(&blockBeginLoc, &blockEndLoc)
+
+	p.scopes.pop()
+
+	l.NextTokenKind(lexer.TkSepRcurly) // {
 
 	l.NextTokenKind(lexer.TkKwUntil) // until
 	exp := p.parseExp()              // exp
@@ -200,8 +238,10 @@ func (p *moocParser) parseIfStat() *ast.IfStat {
 	l.NextTokenKind(lexer.TkKwIf) // if
 	beginLoc := l.GetNowTokenLoc()
 
-	exps = append(exps, p.parseExp()) // exp
-	l.NextTokenKind(lexer.TkKwThen)   // then
+	exps = append(exps, p.parseExp())  // exp
+	l.NextTokenKind(lexer.TkSepLcurly) // {
+
+	p.scopes.push(pscope_if, "if")
 
 	thenBlockBeginLoc := l.GetHeardTokenLoc()
 	thenBlock := p.parseBlock()
@@ -209,10 +249,16 @@ func (p *moocParser) parseIfStat() *ast.IfStat {
 	thenBlock.Loc = lexer.GetRangeLocExcludeEnd(&thenBlockBeginLoc, &thenBlockEndLoc)
 	blocks = append(blocks, thenBlock) // block
 
+	p.scopes.pop()
+
+	l.NextTokenKind(lexer.TkSepRcurly) // }
+
 	for l.LookAheadKind() == lexer.TkKwElseif {
-		l.NextToken()                     // elseif
-		exps = append(exps, p.parseExp()) // exp
-		l.NextTokenKind(lexer.TkKwThen)   // then
+		l.NextToken()                      // elseif
+		exps = append(exps, p.parseExp())  // exp
+		l.NextTokenKind(lexer.TkSepLcurly) // {
+
+		p.scopes.push(pscope_if, "if")
 
 		elseifBlockBeginLoc := l.GetHeardTokenLoc()
 		elseifBlock := p.parseBlock()
@@ -220,6 +266,10 @@ func (p *moocParser) parseIfStat() *ast.IfStat {
 		elseifBlock.Loc = lexer.GetRangeLocExcludeEnd(&elseifBlockBeginLoc, &elseifBlockEndLoc)
 
 		blocks = append(blocks, elseifBlock) // block
+
+		p.scopes.pop()
+
+		l.NextTokenKind(lexer.TkSepRcurly)
 	}
 
 	// else block => elseif true then block
@@ -229,6 +279,10 @@ func (p *moocParser) parseIfStat() *ast.IfStat {
 			Loc: l.GetNowTokenLoc(),
 		})
 
+		l.NextTokenKind(lexer.TkSepLcurly) // {
+
+		p.scopes.push(pscope_if, "if")
+
 		elseBlockBeginLoc := l.GetHeardTokenLoc()
 		elseBlock := p.parseBlock()
 
@@ -236,9 +290,11 @@ func (p *moocParser) parseIfStat() *ast.IfStat {
 		elseBlock.Loc = lexer.GetRangeLocExcludeEnd(&elseBlockBeginLoc, &elseBlockEndLoc)
 
 		blocks = append(blocks, elseBlock) // block
-	}
 
-	l.NextTokenKind(lexer.TkKwEnd) // end
+		p.scopes.pop()
+
+		l.NextTokenKind(lexer.TkSepRcurly) // }
+	}
 
 	endLoc := l.GetNowTokenLoc()
 	loc := lexer.GetRangeLoc(&beginLoc, &endLoc)
@@ -284,14 +340,18 @@ func (p *moocParser) finishForNumStat(lineOfFor int, varName string, beginLoc *l
 		}
 	}
 
-	l.NextTokenKind(lexer.TkKwDo) // do
+	l.NextTokenKind(lexer.TkSepLcurly) // {
+
+	p.scopes.push(pscope_lo, "for")
 
 	blockBeginLoc := l.GetHeardTokenLoc()
 	block := p.parseBlock() // block
 	blockEndLoc := l.GetNowTokenLoc()
 	block.Loc = lexer.GetRangeLoc(&blockBeginLoc, &blockEndLoc)
 
-	l.NextTokenKind(lexer.TkKwEnd) // end
+	p.scopes.pop()
+
+	l.NextTokenKind(lexer.TkSepRcurly) // }
 
 	endLoc := l.GetNowTokenLoc()
 	loc := lexer.GetRangeLoc(beginLoc, &endLoc)
@@ -316,14 +376,18 @@ func (p *moocParser) finishForInStat(name0 string, beginLoc *lexer.Location) *as
 	nameList, nameLocList := p.finishNameList(name0, varLoc0) // for namelist
 	l.NextTokenKind(lexer.TkKwIn)                             // in
 	expList := p.parseExpList()                               // explist
-	l.NextTokenKind(lexer.TkKwDo)                             // do
+	l.NextTokenKind(lexer.TkSepLcurly)                        // {
+
+	p.scopes.push(pscope_lo, "for")
 
 	blockBeginLoc := l.GetHeardTokenLoc()
 	block := p.parseBlock() // block
 	blockEndLoc := l.GetNowTokenLoc()
 	block.Loc = lexer.GetRangeLoc(&blockBeginLoc, &blockEndLoc)
 
-	l.NextTokenKind(lexer.TkKwEnd) // end
+	p.scopes.pop()
+
+	l.NextTokenKind(lexer.TkSepRcurly) // }
 
 	endLoc := l.GetNowTokenLoc()
 	loc := lexer.GetRangeLoc(beginLoc, &endLoc)
@@ -334,6 +398,176 @@ func (p *moocParser) finishForInStat(name0 string, beginLoc *lexer.Location) *as
 		ExpList:     expList,
 		Block:       block,
 		Loc:         loc,
+	}
+}
+
+// if exp { block } elseif exp  { block } else { block }
+func (p *moocParser) parseGuardStat() *ast.IfStat {
+	l := p.l
+	exps := make([]ast.Exp, 0, 1)
+	blocks := make([]*ast.Block, 0, 1)
+
+	l.NextTokenKind(lexer.TkKwGuard) // guard
+	beginLoc := l.GetNowTokenLoc()
+
+	{
+		// if not ( exp ) { body }
+		exp := p.parseExp()
+		endLoc := l.GetNowTokenLoc()
+		notexp := &ast.UnopExp{
+			Op:  lexer.TkOpNot,
+			Exp: exp,
+			Loc: lexer.GetRangeLoc(&beginLoc, &endLoc),
+		}
+		exps = append(exps, notexp) // exp
+	}
+
+	l.NextTokenKind(lexer.TkKwElse)    // else
+	l.NextTokenKind(lexer.TkSepLcurly) // {
+
+	p.scopes.push(pscope_gu, "guard")
+
+	thenBlockBeginLoc := l.GetHeardTokenLoc()
+	thenBlock := p.parseBlock()
+	thenBlockEndLoc := l.GetHeardTokenLoc()
+	thenBlock.Loc = lexer.GetRangeLocExcludeEnd(&thenBlockBeginLoc, &thenBlockEndLoc)
+	blocks = append(blocks, thenBlock) // block
+
+	if len(blocks) > 0 {
+		block := blocks[len(blocks)-1]
+		slen := len(block.Stats)
+		if len(block.RetExps) > 0 || p.scopes.current().count > 0 {
+			goto success
+		}
+		if slen > 0 {
+			switch block.Stats[slen-1].(type) {
+			case *ast.GotoStat, *ast.BreakStat:
+				goto success
+			}
+		}
+	}
+	p.insertParserErr(l.GetNowTokenLoc(), "guard should transfer control with return/break/goto/continue")
+
+success:
+	p.scopes.pop()
+	l.NextTokenKind(lexer.TkSepRcurly) // }
+
+	endLoc := l.GetNowTokenLoc()
+	loc := lexer.GetRangeLoc(&beginLoc, &endLoc)
+	return &ast.IfStat{
+		Exps:   exps,
+		Blocks: blocks,
+		Loc:    loc,
+	}
+}
+
+// switch exp { case A: exp case B: exp default: }
+func (p *moocParser) parseSwitchStat() *ast.SwitchStat {
+	l := p.l
+	exps := make([]ast.Exp, 0, 1)
+	blocks := make([]*ast.Block, 0, 1)
+
+	l.NextTokenKind(lexer.TkKwSwitch) // switch
+	nameBeginLoc := l.GetNowTokenLoc()
+
+	// local __sw__ =
+	nameList := []string{"__sw__"}
+	attrList := []ast.LocalAttr{ast.VDKREG}
+	locList := []lexer.Location{nameBeginLoc}
+	expList := []ast.Exp{p.parseExp()}
+
+	nameEndLoc := l.GetNowTokenLoc()
+	Name := &ast.LocalVarDeclStat{
+		NameList:   nameList,
+		VarLocList: locList,
+		AttrList:   attrList,
+		ExpList:    expList,
+		Loc:        lexer.GetRangeLoc(&nameBeginLoc, &nameEndLoc),
+	}
+
+	l.NextTokenKind(lexer.TkSepLcurly) // {
+	ifBeginLoc := l.GetNowTokenLoc()
+
+	for l.LookAheadKind() == lexer.TkKwCase {
+		l.NextToken() // case
+
+		exp := &ast.BinopExp{
+			Op: lexer.TkOpEq,
+			Exp1: &ast.NameExp{
+				Name: "__sw__",
+				Loc:  l.GetNowTokenLoc(),
+			},
+			Exp2: p.parseExp(),
+			Loc:  l.GetNowTokenLoc(),
+		}
+		orList := []ast.Exp{}
+		for l.LookAheadKind() == lexer.TkSepComma {
+			l.NextToken()
+			orList = append(orList, &ast.BinopExp{
+				Op: lexer.TkOpEq,
+				Exp1: &ast.NameExp{
+					Name: "__sw__",
+					Loc:  l.GetNowTokenLoc(),
+				},
+				Exp2: p.parseExp(),
+				Loc:  l.GetNowTokenLoc(),
+			})
+		}
+		for orExp := range orList {
+			exp = &ast.BinopExp{
+				Op:   lexer.TkOpOr,
+				Exp1: exp,
+				Exp2: orExp,
+				Loc:  l.GetNowTokenLoc(),
+			}
+		}
+		exps = append(exps, exp)
+		l.NextTokenKind(lexer.TkSepColon) // :
+
+		p.scopes.push(pscope_if, "if")
+
+		caseBeginLoc := l.GetHeardTokenLoc()
+		caseBlock := p.parseBlock()
+		caseBlockEndLoc := l.GetHeardTokenLoc()
+		caseBlock.Loc = lexer.GetRangeLocExcludeEnd(&caseBeginLoc, &caseBlockEndLoc)
+
+		blocks = append(blocks, caseBlock) // block
+
+		p.scopes.pop()
+	}
+
+	if l.LookAheadKind() == lexer.TkKwDefault {
+		l.NextToken()
+		exps = append(exps, &ast.TrueExp{
+			Loc: l.GetNowTokenLoc(),
+		})
+		l.NextTokenKind(lexer.TkSepColon) // :
+
+		p.scopes.push(pscope_if, "if")
+
+		caseBeginLoc := l.GetHeardTokenLoc()
+		caseBlock := p.parseBlock()
+		caseBlockEndLoc := l.GetHeardTokenLoc()
+		caseBlock.Loc = lexer.GetRangeLocExcludeEnd(&caseBeginLoc, &caseBlockEndLoc)
+
+		blocks = append(blocks, caseBlock) // block
+
+		p.scopes.pop()
+	}
+
+	l.NextTokenKind(lexer.TkSepRcurly) // }
+	ifEndLoc := l.GetNowTokenLoc()
+
+	ifStat := &ast.IfStat{
+		Exps:   exps,
+		Blocks: blocks,
+		Loc:    lexer.GetRangeLoc(&ifBeginLoc, &ifEndLoc),
+	}
+
+	return &ast.SwitchStat{
+		Name: Name,
+		Case: ifStat,
+		Loc:  lexer.GetRangeLoc(&nameBeginLoc, &ifEndLoc),
 	}
 }
 
@@ -413,7 +647,7 @@ func (p *moocParser) finishLocalNameList(name0 string, varLoc0 lexer.Location, k
 func (p *moocParser) parseLocalAssignOrFuncDefStat() ast.Stat {
 	l := p.l
 	l.NextTokenKind(lexer.TkKwLocal)
-	if l.LookAheadKind() == lexer.TkKwFunction {
+	if l.LookAheadKind() == lexer.TkKwFn {
 		return p.finishLocalFuncDefStat()
 	}
 
@@ -439,8 +673,8 @@ func (p *moocParser) finishLocalFuncDefStat() *ast.LocalFuncDefStat {
 	l := p.l
 	beginLoc := l.GetNowTokenLoc()
 
-	l.NextTokenKind(lexer.TkKwFunction) // local function
-	_, name := l.NextIdentifier()       // name
+	l.NextTokenKind(lexer.TkKwFn) // local function
+	_, name := l.NextIdentifier() // name
 	nameLoc := l.GetNowTokenLoc()
 	fdExp := p.parseFuncDefExp(false, &beginLoc) // funcbody
 
@@ -606,7 +840,7 @@ func (p *moocParser) parseFuncDefStat(isStaticAttr bool) *ast.AssignStat {
 	}
 	l.NextTokenKind(lexer.TkKwFn) // function
 	beginLoc := l.GetNowTokenLoc()
-	fnExp, hasColon := p.parseFuncName() // funcname
+	fnExp, hasColon := p.parseFuncName(isStaticAttr) // funcname
 	selfLoc := l.GetNowTokenLoc()
 	fdExp := p.parseFuncDefExp(false, &beginLoc) // funcbody
 	if hasColon {                                // insert self
@@ -630,55 +864,76 @@ func (p *moocParser) parseFuncDefStat(isStaticAttr bool) *ast.AssignStat {
 }
 
 // funcname ::= Name {‘.’ Name} [‘:’ Name]
-func (p *moocParser) parseFuncName() (exp ast.Exp, hasColon bool) {
+func (p *moocParser) parseFuncName(isStaticAttr bool) (exp ast.Exp, hasColon bool) {
+	sp := p.scopes.current()
+
 	l := p.l
+	beginLoc := l.GetNowTokenLoc()
 	_, name := l.NextIdentifier()
 	loc := l.GetNowTokenLoc()
 
-	beginTableLoc := l.GetNowTokenLoc()
-	exp = &ast.NameExp{
-		Name: name,
-		Loc:  loc,
-	}
-
-	for l.LookAheadKind() == lexer.TkSepDot {
-		l.NextToken()
-		_, name := l.NextIdentifier()
-		loc := l.GetNowTokenLoc()
+	if sp.scope == pscope_cl {
+		exp = &ast.NameExp{
+			Name: sp.name,
+			Loc:  loc,
+		}
 		idx := &ast.StringExp{
 			Str: name,
 			Loc: loc,
 		}
-
-		endTableLoc := l.GetNowTokenLoc()
-		tableLoc := lexer.GetRangeLoc(&beginTableLoc, &endTableLoc)
-
-		exp = &ast.TableAccessExp{
-			PrefixExp: exp,
-			KeyExp:    idx,
-			Loc:       tableLoc,
-		}
-	}
-	if l.LookAheadKind() == lexer.TkSepColon {
-		l.NextToken()
-		_, name := l.NextIdentifier()
-		loc := l.GetNowTokenLoc()
-		idx := &ast.StringExp{
-			Str: name,
-			Loc: loc,
-		}
-
-		endTableLoc := l.GetNowTokenLoc()
-		tableLoc := lexer.GetRangeLoc(&beginTableLoc, &endTableLoc)
-
+		tableLoc := lexer.GetRangeLoc(&beginLoc, &loc)
 		exp = &ast.TableAccessExp{
 			PrefixExp: exp,
 			KeyExp:    idx,
 			Loc:       tableLoc,
 		}
 		hasColon = true
-	}
+	} else {
 
+		beginTableLoc := l.GetNowTokenLoc()
+		exp = &ast.NameExp{
+			Name: name,
+			Loc:  loc,
+		}
+
+		for l.LookAheadKind() == lexer.TkSepDot {
+			l.NextToken()
+			_, name := l.NextIdentifier()
+			loc := l.GetNowTokenLoc()
+			idx := &ast.StringExp{
+				Str: name,
+				Loc: loc,
+			}
+
+			endTableLoc := l.GetNowTokenLoc()
+			tableLoc := lexer.GetRangeLoc(&beginTableLoc, &endTableLoc)
+
+			exp = &ast.TableAccessExp{
+				PrefixExp: exp,
+				KeyExp:    idx,
+				Loc:       tableLoc,
+			}
+		}
+		if l.LookAheadKind() == lexer.TkSepColon {
+			l.NextToken()
+			_, name := l.NextIdentifier()
+			loc := l.GetNowTokenLoc()
+			idx := &ast.StringExp{
+				Str: name,
+				Loc: loc,
+			}
+
+			endTableLoc := l.GetNowTokenLoc()
+			tableLoc := lexer.GetRangeLoc(&beginTableLoc, &endTableLoc)
+
+			exp = &ast.TableAccessExp{
+				PrefixExp: exp,
+				KeyExp:    idx,
+				Loc:       tableLoc,
+			}
+			hasColon = true
+		}
+	}
 	return
 }
 

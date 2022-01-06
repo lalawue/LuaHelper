@@ -936,7 +936,7 @@ func ChangeFuncSelfToReferVar(fi *FuncInfo, varStruct *DefineVarStruct) {
 		return
 	}
 
-	if varStruct.StrVec[0] == "self" {
+	if IsSelf(fi.FileName, varStruct.StrVec[0]) {
 		// self进行转换
 		//varStruct.StrVec[0] = firstColonFunc.RelateVar.StrName
 		strArray := strings.Split(firstColonFunc.RelateVar.StrName, ".")
@@ -963,7 +963,7 @@ func ChangeSelfToVarComplete(fi *FuncInfo, completeVar *CompleteVarStruct) {
 		return
 	}
 
-	if (*completeVar).StrVec[0] == "self" {
+	if IsSelf(fi.FileName, (*completeVar).StrVec[0]) {
 		strArray := strings.Split(firstColonFunc.RelateVar.StrName, ".")
 		if len(strArray) == 1 {
 			(*completeVar).StrVec[0] = firstColonFunc.RelateVar.StrName

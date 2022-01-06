@@ -108,6 +108,7 @@ func (p *moocParser) BeginAnalyze() (block *ast.Block, commentMap map[int]*lexer
 		}
 	}()
 
+	p.scopes.push(pscope_fi, "fi")
 	p.l.SkipFirstLineComment()
 
 	blockBeginLoc := p.l.GetHeardTokenLoc()
@@ -117,6 +118,7 @@ func (p *moocParser) BeginAnalyze() (block *ast.Block, commentMap map[int]*lexer
 
 	p.l.NextTokenKind(lexer.TkEOF)
 	p.l.SetEnd()
+	p.scopes.pop()
 	return block, p.l.GetCommentMap(), p.parseErrs
 }
 

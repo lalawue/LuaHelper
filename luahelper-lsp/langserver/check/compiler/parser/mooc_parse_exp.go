@@ -201,10 +201,14 @@ func (p *moocParser) parseFuncDefExp(isAnonymous bool, beginLoc *lexer.Location)
 		l.NextTokenKind(lexer.TkSepLcurly) // {
 	}
 
+	p.scopes.push(pscope_fn, "fn")
+
 	blockBeginLoc := l.GetHeardTokenLoc()
 	block := p.parseBlock() // block
 	blockEndLoc := l.GetNowTokenLoc()
 	block.Loc = lexer.GetRangeLoc(&blockBeginLoc, &blockEndLoc)
+
+	p.scopes.pop()
 
 	l.NextTokenKind(lexer.TkSepRcurly) // }
 
@@ -226,7 +230,7 @@ func (p *moocParser) parseFuncDefExp(isAnonymous bool, beginLoc *lexer.Location)
 func (p *moocParser) parseParList() (names []string, locVec []lexer.Location, isVararg bool) {
 	l := p.l
 	switch l.LookAheadKind() {
-	case lexer.TkSepRparen:
+	case lexer.TkSepRparen, lexer.TkKwIn:
 		return nil, nil, false
 	case lexer.TkVararg:
 		l.NextToken()

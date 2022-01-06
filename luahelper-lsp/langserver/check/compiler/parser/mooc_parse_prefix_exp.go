@@ -104,7 +104,7 @@ func (p *moocParser) finishPrefixExp(exp ast.Exp, beginLoc *lexer.Location) ast.
 				Loc:       tableLoc,
 			}
 		case lexer.TkSepColon, // prefixexp ‘:’ Name args
-			lexer.TkSepLparen, lexer.TkSepLcurly, lexer.TkString: // prefixexp args
+			lexer.TkSepLparen: // prefixexp args
 			exp = p.finishFuncCallExp(exp)
 		default:
 			return exp
