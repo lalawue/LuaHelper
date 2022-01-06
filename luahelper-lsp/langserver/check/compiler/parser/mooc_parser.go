@@ -93,6 +93,7 @@ func createMoocParser(chunk []byte, chunkName string) *moocParser {
 	errHandler := parser.insertErr
 	parser.l = lexer.NewLexer(chunk, chunkName)
 	parser.l.SetErrHandler(errHandler)
+	parser.scopes = scopeStack{0, make([]parserScope, 128)}
 
 	return parser
 }
