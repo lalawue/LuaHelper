@@ -1214,18 +1214,10 @@ func (a *Analysis) cgClassStat(node *ast.ClassDefStat) {
 	a.cgStat(node.Name)
 
 	a.enterScope()
-	backupScope := a.curScope
-
-	subScope := common.CreateScopeInfo(backupScope, nil, node.Loc)
-	backupScope.AppendSubScope(subScope)
-	a.curScope = subScope
-
 	for _, vf := range node.List {
 		a.cgAssignStat(vf)
 	}
-
 	a.exitScope()
-	a.curScope = backupScope
 }
 
 func (a *Analysis) cgImportStat(node *ast.ImportDefStat) {
