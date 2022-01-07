@@ -97,7 +97,7 @@ func (allProject *AllProject) analysisFirstLuaFile(f *results.FileStruct, luaFil
 
 	firstFile.InertNewFunc(firstFile.MainFunc)
 
-	analysis := analysis.CreateAnalysis(results.CheckTermFirst, "")
+	analysis := analysis.CreateAnalysis(results.CheckTermFirst, luaFile)
 	analysis.Projects = allProject
 	analysis.SetRealTimeFlag(realTimeFlag)
 

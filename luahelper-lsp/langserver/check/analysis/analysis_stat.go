@@ -951,22 +951,21 @@ func (a *Analysis) cgAssignStat(node *ast.AssignStat) {
 		// 需要定义变量
 		if needDefineFlag {
 			if isMooc && (node.Attr != ast.VDKEXPORT) {
-				if nExps <= (i + 1) {
+				// 如果是 mooc 非 export 场景，创建 local 变量
+				needDefineFlag = false
+				if nExps < (i + 1) {
 					// FIXME: 这里因为超出范围，先略过
 					continue
 				}
-				// 如果是 mooc 非 export 场景，创建 local 变量
 				exp := node.ExpList[i]
-				tempVar := common.CreateVarInfo(fileResult.Name, common.LuaTypeAll, nil, lexer.Location{}, varIndex)
-				oneFunc, oneRefer := a.cgExp(exp, tempVar, nil)
+				oneFunc, oneRefer := a.cgExp(exp, tmpVar, nil)
 				if oneRefer != nil {
 					oneRefer.ReferVarLocal = true
 				}
 
 				scope := a.curScope
 
-				nowLoc := node.Loc
-				varInfo := scope.AddLocVar(fileResult.Name, strName, common.GetExpType(exp), exp, nowLoc, varIndex)
+				varInfo := scope.AddLocVar(fileResult.Name, strName, common.GetExpType(exp), exp, node.Loc, varIndex)
 
 				switch exp.(type) {
 				case *ast.FuncDefExp:
@@ -985,7 +984,7 @@ func (a *Analysis) cgAssignStat(node *ast.AssignStat) {
 				}
 
 				// 构造这个变量的table 构造的成员
-				varInfo.SubMaps = tempVar.SubMaps
+				varInfo.SubMaps = tmpVar.SubMaps
 
 				// 关联这个变量，引用其他的变量
 				// 当前是局部变量赋值的时候，关联这个变量指向其他的变量
