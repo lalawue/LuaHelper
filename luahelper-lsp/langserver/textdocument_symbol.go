@@ -7,10 +7,11 @@ import (
 	"luahelper-lsp/langserver/lspcommon"
 	"luahelper-lsp/langserver/pathpre"
 	lsp "luahelper-lsp/langserver/protocol"
+	"strings"
 )
 
 // TextDocumentSymbol 提示文件中生成所有的符合 @使用
-func (l *LspServer)TextDocumentSymbol(ctx context.Context, vs lsp.DocumentSymbolParams) (itemsResult []lsp.DocumentSymbol, err error) {
+func (l *LspServer) TextDocumentSymbol(ctx context.Context, vs lsp.DocumentSymbolParams) (itemsResult []lsp.DocumentSymbol, err error) {
 	strFile := pathpre.VscodeURIToString(string(vs.TextDocument.URI))
 	project := l.getAllProject()
 	if !project.IsNeedHandle(strFile) {
@@ -22,22 +23,30 @@ func (l *LspServer)TextDocumentSymbol(ctx context.Context, vs lsp.DocumentSymbol
 	fileSymbolVec := project.FindFileAllSymbol(strFile)
 
 	// 将filesymbols 转换为 lsp document
-	itemsResult = transferSymbolVec(fileSymbolVec)
+	itemsResult = transferSymbolVec(strFile, 0, fileSymbolVec)
 	return
 }
 
 // transferSymbolVec 转换fileSybmols为DocumentSymbol
-func transferSymbolVec(fileSymbolVec []common.FileSymbolStruct) (items []lsp.DocumentSymbol) {
+func transferSymbolVec(strFile string, level int, fileSymbolVec []common.FileSymbolStruct) (items []lsp.DocumentSymbol) {
 	vecLen := len(fileSymbolVec)
 	items = make([]lsp.DocumentSymbol, 0, vecLen)
+
+	isMooc := strings.HasSuffix(strFile, ".mooc")
 
 	for _, oneSymbol := range fileSymbolVec {
 		ra := lspcommon.LocToRange(&oneSymbol.Loc)
 
 		fullName := oneSymbol.Name
-		if oneSymbol.ContainerName != "" {
+		if oneSymbol.ContainerName == "" {
+			if isMooc && level <= 0 {
+				fullName = "export " + fullName
+			}
+		} else {
 			if oneSymbol.ContainerName == "local" {
-				fullName = oneSymbol.ContainerName + " " + fullName
+				if !isMooc {
+					fullName = oneSymbol.ContainerName + " " + fullName
+				}
 			} else {
 				fullName = oneSymbol.ContainerName + "." + fullName
 			}
@@ -51,7 +60,7 @@ func transferSymbolVec(fileSymbolVec []common.FileSymbolStruct) (items []lsp.Doc
 		}
 
 		if oneSymbol.Children != nil {
-			symbol.Children = transferSymbolVec(oneSymbol.Children)
+			symbol.Children = transferSymbolVec(strFile, level+1, oneSymbol.Children)
 		}
 		if oneSymbol.Kind == common.IKAnnotateAlias {
 			symbol.Kind = lsp.Interface

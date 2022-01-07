@@ -52,13 +52,13 @@ func (p *moocParser) parseStat() ast.Stat {
 	case lexer.TkKwFor:
 		return p.parseForStat()
 	case lexer.TkKwFn:
-		return p.parseFuncDefStat(false)
+		return p.parseFuncDefStat(false, false)
 	case lexer.TkKwLocal:
 		return p.parseLocalAssignOrFuncDefStat()
 	case lexer.TkKwClass, lexer.TkKwStruct, lexer.TkKwExtension:
 		return p.parserClassDefStat(token)
 	case lexer.TkKwStatic:
-		return p.parseFuncDefStat(true)
+		return p.parseFuncDefStat(false, true)
 	case lexer.TkKwImport:
 		return p.parseImportStat()
 	case lexer.TkKwDefer:
@@ -70,7 +70,7 @@ func (p *moocParser) parseStat() ast.Stat {
 			return &ast.ExportAllStat{Loc: p.l.GetNowTokenLoc()}
 		}
 		if p.l.LookAheadKind() == lexer.TkKwFn {
-			return p.parseFuncDefStat(false)
+			return p.parseFuncDefStat(true, false)
 		} else {
 			return p.parseAssignOrFuncCallStat(true)
 		}
@@ -833,7 +833,7 @@ func (p *moocParser) checkVar(exp ast.Exp) ast.Exp {
 // funcbody ::= ‘(’ [parlist] ‘)’ block end
 // parlist ::= namelist [‘,’ ‘...’] | ‘...’
 // namelist ::= Name {‘,’ Name}
-func (p *moocParser) parseFuncDefStat(isStaticAttr bool) *ast.AssignStat {
+func (p *moocParser) parseFuncDefStat(isExport bool, isStaticAttr bool) *ast.AssignStat {
 	l := p.l
 	if isStaticAttr {
 		l.NextTokenKind(lexer.TkKwStatic)
@@ -854,12 +854,18 @@ func (p *moocParser) parseFuncDefStat(isStaticAttr bool) *ast.AssignStat {
 		fdExp.ParLocList[0] = selfLoc
 	}
 
+	attr := ast.VDKREG
+	if isExport {
+		attr = ast.VDKEXPORT
+	}
+
 	endLoc := l.GetNowTokenLoc()
 	loc := lexer.GetRangeLoc(&beginLoc, &endLoc)
 	return &ast.AssignStat{
 		VarList: []ast.Exp{fnExp},
 		ExpList: []ast.Exp{fdExp},
 		Loc:     loc,
+		Attr:    attr,
 	}
 }
 
@@ -1006,7 +1012,7 @@ func (p *moocParser) parserClassDefStat(token lexer.TkKind) ast.Stat {
 		token := l.LookAheadKind()
 		if token == lexer.TkKwStatic || token == lexer.TkKwFn {
 			// 类函数
-			vfList = append(vfList, p.parseFuncDefStat(token == lexer.TkKwStatic))
+			vfList = append(vfList, p.parseFuncDefStat(false, token == lexer.TkKwStatic))
 		} else {
 			if token == lexer.TkIdentifier {
 				// 类变量，模拟 tableAccess 的 assign stat
