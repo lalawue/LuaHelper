@@ -40,10 +40,25 @@ func transferSymbolVec(strFile string, level int, fileSymbolVec []common.FileSym
 		fullName := oneSymbol.Name
 		if oneSymbol.ContainerName == "" {
 			if isMooc {
+				// mark 标记，或者丢掉多余的类前缀
 				if oneSymbol.Kind == common.IKAnnotateMark {
 					fullName = "---"
 				} else if level <= 0 {
 					fullName = "export " + fullName
+				} else {
+					idx := strings.Index(fullName, ".")
+					if idx > 0 {
+						if oneSymbol.Kind == common.IKFunction {
+							fullName = fullName[idx:]
+						} else {
+							fullName = fullName[idx+1:]
+						}
+					} else {
+						idx = strings.Index(fullName, ":")
+						if idx > 0 && oneSymbol.Kind == common.IKFunction {
+							fullName = fullName[idx:]
+						}
+					}
 				}
 			}
 		} else {
