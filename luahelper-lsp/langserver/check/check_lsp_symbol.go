@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"runtime"
 	"sort"
+	"strings"
 	"unicode"
 )
 
@@ -35,8 +36,51 @@ func (a *AllProject) FindFileAllSymbol(strFile string) (symbolVec []common.FileS
 
 	// 2) 获取文件的注解类型信息, 用于显示当前文档的符号
 	annotateSymbolVec := a.GetAnnotateFileSymbolStruct(strFile)
-	symbolVec = append(symbolVec, annotateSymbolVec...)
+
+	if strings.HasSuffix(strFile, ".mooc") {
+		symbolVec = appendFileSymbolStruct(symbolVec, annotateSymbolVec)
+	} else {
+		symbolVec = append(symbolVec, annotateSymbolVec...)
+	}
 	return
+}
+
+// 符号排序考虑 children
+func appendFileSymbolStruct(s1 []common.FileSymbolStruct, s2 []common.FileSymbolStruct) []common.FileSymbolStruct {
+	s := []common.FileSymbolStruct{}
+	i := 0
+	j := 0
+	for {
+		if i >= len(s1) && j >= len(s2) {
+			break
+		}
+		if i >= len(s1) {
+			s = append(s, s2[j])
+			j += 1
+			continue
+		}
+		if j >= len(s2) {
+			s = append(s, s1[i])
+			i += 1
+			continue
+		}
+		si := s1[i]
+		sj := s2[j]
+		if si.Loc.StartLine < sj.Loc.StartLine {
+			if len(si.Children) > 0 && si.Loc.EndLine >= sj.Loc.StartLine {
+				si.Children = appendFileSymbolStruct(si.Children, []common.FileSymbolStruct{sj})
+				s1[i] = si
+				j += 1
+				continue
+			}
+			s = append(s, si)
+			i += 1
+		} else {
+			s = append(s, sj)
+			j += 1
+		}
+	}
+	return s
 }
 
 // FindWorkspaceAllSymbol 查找工程内所有全局符号
