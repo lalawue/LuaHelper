@@ -280,3 +280,25 @@ func parserVarargState(l *annotatelexer.AnnotateLexer) annotateast.AnnotateState
 
 	return varargState
 }
+
+// 解析@mark
+// --@mark anything
+func parseMarkState(l *annotatelexer.AnnotateLexer) (oneState annotateast.AnnotateState,
+	parseErr annotatelexer.ParseAnnotateErr) {
+
+	parseErr.ErrType = annotatelexer.AErrorOk
+	state := annotateast.AnnotateMarkState{}
+
+	// 获取类型
+	state.MarkType = &annotateast.NormalType{
+		StrName:   "---",
+		NameLoc:   l.GetNowLoc(),
+		ShowColor: false,
+	}
+
+	// 获取这个state的多余注释
+	state.Comment, state.CommentLoc = l.GetRemainComment()
+	oneState = &state
+
+	return
+}

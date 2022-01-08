@@ -39,6 +39,12 @@ type OneAliasInfo struct {
 	LuaFile    string                          // 这个结构所在的lua文件名
 }
 
+// OneMarkInfo 单个mark信息
+type OneMarkInfo struct {
+	MarkState *annotateast.AnnotateMarkState // 这个块对应mark信息
+	LuaFile   string
+}
+
 // FragmentAliasInfo 单个块所对应的alias信息, 一个注释块，允许有多个 FragmentAliasInfo
 type FragmentAliasInfo struct {
 	AliasList []*OneAliasInfo // 这个块对应的多个alias信息
@@ -85,6 +91,11 @@ type FragementOverloadInfo struct {
 	OverloadList []*annotateast.AnnotateOverloadState
 }
 
+// FragementMarkInfo 标记信息
+type FragementMarkInfo struct {
+	MarkInfoList []*OneMarkInfo
+}
+
 // FragementInfo 单个注释块转成的结构
 type FragementInfo struct {
 	LastLine     int   // 最后一行
@@ -97,6 +108,7 @@ type FragementInfo struct {
 	VarargInfo   *FragementVarargInfo
 	GenericInfo  *FragementGenericInfo
 	OverloadInfo *FragementOverloadInfo
+	MarkInfo     *FragementMarkInfo
 }
 
 // GetFirstOneClassInfo 获取注释代码段第一个ClassInfo
@@ -247,6 +259,7 @@ type CreateTypeInfo struct {
 	LastLine  int           // 这个结构定义的最后行数
 	ClassInfo *OneClassInfo // 当对应的为class时候，指向的指针
 	AliasInfo *OneAliasInfo // 当对应的为alias时候，指向的指针
+	MarkInfo  *OneMarkInfo  // 当对应为mark时候，指向的指针
 }
 
 // GetFileNameAndLoc 获取出现的lua文件名及其位置新
@@ -418,6 +431,10 @@ func (af *AnnotateFile) analysisAnnotateFragement(lastLine int, annotateFragment
 		VarargInfo: nil,
 	}
 
+	markInfo := FragementMarkInfo{
+		MarkInfoList: nil,
+	}
+
 	fragmentInfo := &FragementInfo{
 		LastLine: lastLine,
 	}
@@ -485,6 +502,12 @@ func (af *AnnotateFile) analysisAnnotateFragement(lastLine int, annotateFragment
 
 		case *annotateast.AnnotateVarargState:
 			varargInfo.VarargInfo = state
+
+		case *annotateast.AnnotateMarkState:
+			markInfo.MarkInfoList = append(markInfo.MarkInfoList, &OneMarkInfo{
+				MarkState: state,
+				LuaFile:   af.LuaFile,
+			})
 		}
 	}
 
@@ -529,6 +552,11 @@ func (af *AnnotateFile) analysisAnnotateFragement(lastLine int, annotateFragment
 	// 8) 可变参数段
 	if varargInfo.VarargInfo != nil {
 		fragmentInfo.VarargInfo = &varargInfo
+	}
+
+	// 标记信息
+	if len(markInfo.MarkInfoList) > 0 {
+		fragmentInfo.MarkInfo = &markInfo
 	}
 
 	af.FragementMap[lastLine] = fragmentInfo
@@ -580,6 +608,17 @@ func (af *AnnotateFile) generateNewType() {
 				}
 
 				af.insertNewType(oneAlias.AliasState.Name, oneTypeInfo)
+			}
+		}
+
+		if fragment.MarkInfo != nil {
+			for _, oneMark := range fragment.MarkInfo.MarkInfoList {
+				oneTypeInfo := &CreateTypeInfo{
+					LastLine: fragment.LastLine,
+					MarkInfo: oneMark,
+				}
+
+				af.insertNewType(oneMark.MarkState.Comment, oneTypeInfo)
 			}
 		}
 	}

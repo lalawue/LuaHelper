@@ -25,6 +25,8 @@ const (
 	IKAnnotateAlias ItemKind = 6
 	// CIKSnippet 注释
 	IKSnippet ItemKind = 15
+	// IKAnnotateMark 注释
+	IKAnnotateMark ItemKind = 16
 )
 
 // FileSymbolStruct 文件内的单个符号名

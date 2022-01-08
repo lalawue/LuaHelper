@@ -16,13 +16,17 @@ func ParseCommentFragment(commentInfo *lexer.CommentInfo) (fragment annotateast.
 	for _, commentLine := range commentInfo.LineVec {
 		l := annotatelexer.CreateAnnotateLexer(&commentLine.Str, commentLine.Line, commentLine.Col)
 
+		var annotateState annotateast.AnnotateState
+		var parseErr annotatelexer.ParseAnnotateErr
+
 		// 判断这行内容是否以-@开头，是否合法
-		if !l.CheckHeardValid() {
-			continue
+		if l.CheckHeardValid() {
+			// 后面的内容进行词法解析
+			annotateState, parseErr = ParserLine(l)
+		} else if l.CheckMarkValid() {
+			annotateState, parseErr = parseMarkState(l)
 		}
 
-		// 后面的内容进行词法解析
-		annotateState, parseErr := ParserLine(l)
 		if parseErr.ErrType != annotatelexer.AErrorOk {
 			parseErrVec = append(parseErrVec, parseErr)
 			continue

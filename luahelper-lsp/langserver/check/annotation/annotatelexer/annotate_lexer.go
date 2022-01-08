@@ -64,6 +64,14 @@ func (l *AnnotateLexer) CheckHeardValid() bool {
 	return false
 }
 
+func (l *AnnotateLexer) CheckMarkValid() bool {
+	if l.test(" MARK: ") {
+		l.next(7)
+		return true
+	}
+	return false
+}
+
 func (l *AnnotateLexer) test(s string) bool {
 	sLen := len(s)
 	if len(l.chunk) < sLen {

@@ -95,6 +95,14 @@ type AnnotateVarargState struct {
 	CommentLoc lexer.Location // 注释内容的位置信息
 }
 
+// AnnotateMarkState 分割标记
+// -- MARK: any comment
+type AnnotateMarkState struct {
+	MarkType   Type           // 定义的类型
+	Comment    string         // 其他所有的注释内容
+	CommentLoc lexer.Location // 注释内容的位置信息
+}
+
 // AnnotateNotValidState 无效的Stat
 type AnnotateNotValidState struct {
 }

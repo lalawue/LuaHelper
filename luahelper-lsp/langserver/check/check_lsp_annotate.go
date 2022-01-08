@@ -29,7 +29,7 @@ func (a *AllProject) checkOneFileType(annotateFile *common.AnnotateFile, fragemn
 			continue
 		}
 
-		if str == "..." {
+		if str == "..." || str == "---" {
 			continue
 		}
 
@@ -101,6 +101,12 @@ func (a *AllProject) checkFileAnnotate(fileStruct *results.FileStruct) {
 			oneVararg := oneFragment.VarargInfo.VarargInfo
 			if oneVararg != nil {
 				a.checkOneFileType(annotateFile, oneFragment, oneVararg.VarargType)
+			}
+		}
+
+		if oneFragment.MarkInfo != nil {
+			for _, oneMark := range oneFragment.MarkInfo.MarkInfoList {
+				a.checkOneFileType(annotateFile, oneFragment, oneMark.MarkState.MarkType)
 			}
 		}
 	}
@@ -1429,6 +1435,17 @@ func (a *AllProject) GetAnnotateFileSymbolStruct(fileName string) (symbolVec []c
 
 	for strName, typeList := range annotateFile.CreateTypeMap {
 		for _, one := range typeList.List {
+
+			if one.MarkInfo != nil {
+				oneSymbol := common.FileSymbolStruct{
+					Name: strName,
+					Kind: common.IKAnnotateMark,
+					Loc:  one.MarkInfo.MarkState.CommentLoc,
+				}
+
+				symbolVec = append(symbolVec, oneSymbol)
+			}
+
 			if one.AliasInfo != nil {
 				oneSymbol := common.FileSymbolStruct{
 					Name: strName,

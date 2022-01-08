@@ -39,8 +39,12 @@ func transferSymbolVec(strFile string, level int, fileSymbolVec []common.FileSym
 
 		fullName := oneSymbol.Name
 		if oneSymbol.ContainerName == "" {
-			if isMooc && level <= 0 {
-				fullName = "export " + fullName
+			if isMooc {
+				if oneSymbol.Kind == common.IKAnnotateMark {
+					fullName = "---"
+				} else if level <= 0 {
+					fullName = "export " + fullName
+				}
 			}
 		} else {
 			if oneSymbol.ContainerName == "local" {
@@ -71,6 +75,9 @@ func transferSymbolVec(strFile string, level int, fileSymbolVec []common.FileSym
 		} else if oneSymbol.Kind == common.IKFunction {
 			symbol.Kind = lsp.Function
 			symbol.Detail = "function"
+		} else if oneSymbol.Kind == common.IKAnnotateMark {
+			symbol.Kind = lsp.Field
+			symbol.Detail = oneSymbol.Name
 		} else if len(oneSymbol.Children) != 0 {
 			symbol.Kind = lsp.Class
 			symbol.Detail = "table"
