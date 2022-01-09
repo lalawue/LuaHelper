@@ -248,7 +248,7 @@ func (f *FileResult) CheckReferFile(referInfo *common.ReferInfo, allFilesMap map
 		// 1.2) 非全路径匹配
 		if !common.GConfig.ReferMatchPathFlag {
 			// 如果配置为非全路径匹配，尝试模糊匹配路径
-			bestFilePath := common.GetBestMatchReferFile(curFile, strFile, allFilesMap)
+			bestFilePath := common.GConfig.GetDirManager().GetBestMatchReferFile(curFile, strFile, allFilesMap)
 			if bestFilePath != "" {
 				// lua文件存在，正常
 				referInfo.ReferValidStr = bestFilePath
@@ -343,7 +343,7 @@ func (f *FileResult) CheckReferFile(referInfo *common.ReferInfo, allFilesMap map
 	}
 
 	// b) 如果配置为非全路径匹配，尝试模糊匹配路径
-	strBestFileTmp := common.GetBestMatchReferFile(curFile, strNewFile, allFilesMap)
+	strBestFileTmp := dirManager.GetBestMatchReferFile(curFile, strNewFile, allFilesMap)
 	if strBestFileTmp != "" {
 		// 匹配到了，判断对应的文件，是否存在
 		// lua文件存在，正常
@@ -354,7 +354,7 @@ func (f *FileResult) CheckReferFile(referInfo *common.ReferInfo, allFilesMap map
 	// c) suffixStrFile = strOldFile + "/init.lua"
 	initFile := strNewFile + "/init.lua"
 	// 如果配置为全路径匹配，尝试模糊匹配路径
-	strBestFileTmp = common.GetBestMatchReferFile(curFile, initFile, allFilesMap)
+	strBestFileTmp = dirManager.GetBestMatchReferFile(curFile, initFile, allFilesMap)
 	if strBestFileTmp != "" {
 		referInfo.ReferValidStr = strBestFileTmp
 		return
@@ -362,7 +362,7 @@ func (f *FileResult) CheckReferFile(referInfo *common.ReferInfo, allFilesMap map
 
 	initFile = strNewFile + "/init.mooc"
 	// 如果配置为全路径匹配，尝试模糊匹配路径
-	strBestFileTmp = common.GetBestMatchReferFile(curFile, initFile, allFilesMap)
+	strBestFileTmp = dirManager.GetBestMatchReferFile(curFile, initFile, allFilesMap)
 	if strBestFileTmp != "" {
 		referInfo.ReferValidStr = strBestFileTmp
 		return

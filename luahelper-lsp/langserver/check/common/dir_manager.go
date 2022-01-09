@@ -30,6 +30,12 @@ type DirManager struct {
 
 	// 插件前端配置的读取Lua标准库等lua文件的文件夹
 	clientExtLuaPath string
+
+	// 类似 LUA_PATH 的配置
+	clientLuaPaths []string
+
+	// 类似 LUA_CPATH 的配置
+	clientLuaCPaths []string
 }
 
 // create default dir manager
@@ -339,7 +345,40 @@ func (d *DirManager) MatchAllDirReferFile(curFile string, referStr string) (refe
 		}
 	}
 
+	for _, extDir := range d.clientLuaPaths {
+		strPath := d.GetCompletePath(extDir, referStr)
+		if g.FileExistCache(strPath) {
+			// lua文件存在，正常
+			referFile = strPath
+			return
+		}
+	}
+
+	for _, extDir := range d.clientLuaCPaths {
+		strPath := d.GetCompletePath(extDir, referStr)
+		if g.FileExistCache(strPath) {
+			// lua文件存在，正常
+			referFile = strPath
+			return
+		}
+	}
+
 	return referFile
+}
+
+// 检查是否为外部文件，添加路径
+func (d *DirManager) appendBestDir(curFile string) (matchDir string) {
+	if d.mainDir == "" {
+		return
+	}
+	for _, prefix := range d.clientLuaPaths {
+		path := prefix + curFile
+		if filefolder.IsFileExist(path) {
+			matchDir = path
+			return
+		}
+	}
+	return
 }
 
 func (d *DirManager) matchBestDir(curFile string) (matchDir string) {
@@ -566,7 +605,7 @@ func calcMatchStrScore(fileName string, referFileName string, condidateStr strin
 // referFile 为引用的lua文件名
 // allFilesMap 为项目中所有包含的lua文件
 // 返回值为匹配最合适的文件
-func GetBestMatchReferFile(curFile string, referFile string, allFilesMap map[string]struct{}) (findStr string) {
+func (d *DirManager) GetBestMatchReferFile(curFile string, referFile string, allFilesMap map[string]struct{}) (findStr string) {
 	// 首先判断传人的文件是否带有后缀的
 	suffixFlag := false
 	seperateIndex := strings.Index(referFile, ".")
@@ -607,6 +646,22 @@ func GetBestMatchReferFile(curFile string, referFile string, allFilesMap map[str
 
 		// 包含引入的后缀
 		candidateVec = append(candidateVec, strFile)
+	}
+
+	// 检查 LUA_PATH
+	for _, dir := range d.clientLuaPaths {
+		strFile := d.GetCompletePath(dir, referFile)
+		if filefolder.IsFileExist(strFile) {
+			candidateVec = append(candidateVec, strFile)
+		}
+	}
+
+	// 检查 LUA_CPATH
+	for _, dir := range d.clientLuaCPaths {
+		strFile := d.GetCompletePath(dir, referFile)
+		if filefolder.IsFileExist(strFile) {
+			candidateVec = append(candidateVec, strFile)
+		}
 	}
 
 	// 没有找到任何匹配的

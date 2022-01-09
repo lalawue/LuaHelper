@@ -255,6 +255,8 @@ type (
 		ReferFrameFiles       []referFrameFile    `json:"ReferFrameFiles"`       // 项目中引用其他的框架文件
 		PathSeparator         string              `json:"PathSeparator"`         // 项目中引入其他文件，路径分隔符，默认为. 例如require("one.b") 表示引入one/b.lua 文件
 		AnntotateSets         []AnntotateSet      `json:"AnntotateSets"`         // 自动推导的注解方式
+		ProjectLuaPath        string              `json:"ProjectLuaPath"`        // 工程 LuaPath
+		ProjectLuaCPath       string              `json:"ProjectLuaCPath"`       // 工程 LuaPath
 	}
 )
 
@@ -283,6 +285,7 @@ func createDefaultJSONCfig() {
 		ReferFrameFiles:       []referFrameFile{{Name: "import", Type: 0, SuffixFlag: 1}},
 		PathSeparator:         ".",
 		AnntotateSets:         []AnntotateSet{},
+		ProjectLuaPath:        "",
 	}
 }
 
@@ -330,6 +333,7 @@ func (g *GlobalConfig) setSysNotUseMap() {
 	g.ignoreSysNoUseMap["string"] = true
 	g.ignoreSysNoUseMap["table"] = true
 	g.ignoreSysNoUseMap["utf8"] = true
+	g.ignoreSysNoUseMap["jit"] = true
 }
 
 // IntialGlobalVar 初始化全局配置
@@ -375,6 +379,7 @@ func (g *GlobalConfig) IntialGlobalVar() {
 		"string":         "module",
 		"table":          "module",
 		"utf8":           "module",
+		"jit":            "module",
 	}
 
 	g.ReferOtherFileMap = map[string]bool{
@@ -730,6 +735,26 @@ func (g *GlobalConfig) ReadConfig(strDir, configFileName string, checkFlagList [
 
 	if jsonConfig.PathSeparator != "" {
 		GConfig.PathSeparator = jsonConfig.PathSeparator
+	}
+
+	// 工程类似的 LuaPath
+	if jsonConfig.ProjectLuaPath != "" {
+		GConfig.dirManager.clientLuaPaths = strings.Split(jsonConfig.ProjectLuaPath, ";")
+		for i, dir := range GConfig.dirManager.clientLuaPaths {
+			if !strings.HasSuffix(dir, "/") {
+				GConfig.dirManager.clientLuaPaths[i] = dir + "/"
+			}
+		}
+	}
+
+	// 工程类似的 LuaCPath
+	if jsonConfig.ProjectLuaCPath != "" {
+		GConfig.dirManager.clientLuaCPaths = strings.Split(jsonConfig.ProjectLuaCPath, ";")
+		for i, dir := range GConfig.dirManager.clientLuaCPaths {
+			if !strings.HasSuffix(dir, "/") {
+				GConfig.dirManager.clientLuaCPaths[i] = dir + "/"
+			}
+		}
 	}
 
 	log.Debug("read ok")
