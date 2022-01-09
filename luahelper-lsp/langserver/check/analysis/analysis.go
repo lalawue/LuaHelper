@@ -66,6 +66,9 @@ type Analysis struct {
 	// 第二阶段分析工程，需要找全局第一轮已经分析完的文件，指针指向；
 	// 第一阶段也需要，当前lua文件引入了其他文件的符号，例如require("one") 或是dofile("one.lua")
 	Projects projects.Projects
+
+	// 特别的标记
+	extMark string
 }
 
 // CreateAnalysis 创建一个分析的结构
@@ -84,6 +87,7 @@ func CreateAnalysis(checkTerm results.CheckTerm, entryFile string) *Analysis {
 		CompleteResult:      nil,
 		realTimeFlag:        false,
 		curFunc:             nil,
+		extMark:             "",
 	}
 }
 

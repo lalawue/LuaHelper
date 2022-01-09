@@ -27,7 +27,7 @@ func (a *Analysis) cgStat(node ast.Stat) {
 	case *ast.AssignStat:
 		a.cgAssignStat(stat)
 	case *ast.LocalVarDeclStat:
-		a.cgLocalVarDeclStat(stat, false)
+		a.cgLocalVarDeclStat(stat)
 	case *ast.LocalFuncDefStat:
 		a.cgLocalFuncDefStat(stat)
 	case *ast.LabelStat:
@@ -462,7 +462,7 @@ func (a *Analysis) cgLocalFuncDefStat(node *ast.LocalFuncDefStat) {
 	locVar.ReferFunc = subFi
 }
 
-func (a *Analysis) cgLocalVarDeclStat(node *ast.LocalVarDeclStat, inUse bool) {
+func (a *Analysis) cgLocalVarDeclStat(node *ast.LocalVarDeclStat) {
 	nNames := len(node.NameList)
 	nExps := len(node.ExpList)
 	fileResult := a.curResult
@@ -514,7 +514,12 @@ func (a *Analysis) cgLocalVarDeclStat(node *ast.LocalVarDeclStat, inUse bool) {
 		if oneAttr == ast.RDKTOCLOSE {
 			varInfo.IsClose = true
 		}
-		varInfo.IsUse = inUse
+		if strings.HasPrefix(a.extMark, "class_") {
+			varInfo.IsUse = true
+			if a.extMark == "class_def" {
+				varInfo.IsParam = true
+			}
+		}
 
 		switch exp.(type) {
 		case *ast.FuncDefExp:
@@ -1214,15 +1219,22 @@ func (a *Analysis) cgClassStat(node *ast.ClassDefStat) {
 	}
 
 	// class 作为 table 定义，在 class scope 外可见
-	for _, nf := range node.Vars {
-		a.cgLocalVarDeclStat(nf, true)
+
+	for i, nf := range node.Vars {
+		a.cgLocalVarDeclStat(nf)
+		if i == 0 {
+			// 这里是为了忽略 Self 和 super local assign stat
+			a.extMark = "class_def"
+		}
 	}
+	a.extMark = "class_scope"
 
 	a.enterScope()
 	for _, vf := range node.List {
 		a.cgAssignStat(vf)
 	}
 	a.exitScope()
+	a.extMark = ""
 }
 
 func (a *Analysis) cgImportStat(node *ast.ImportDefStat) {
@@ -1238,7 +1250,7 @@ func (a *Analysis) cgImportStat(node *ast.ImportDefStat) {
 				break
 			}
 		}
-		a.cgLocalVarDeclStat(node.Name, false)
+		a.cgLocalVarDeclStat(node.Name)
 	}
 }
 
