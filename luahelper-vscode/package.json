@@ -329,7 +329,7 @@
             }
         ],
         "configuration": {
-            "title": "Lua Helper",
+            "title": "Mooc Helper",
             "properties": {
                 "luahelper.colors.Enable": {
                     "default": true,

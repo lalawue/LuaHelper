@@ -112,5 +112,5 @@
         "body": "extension ${1:Name} : ${2:Mixed}{\n\t${0:-- body}\n}",
         "description": "extension",
         "scope": "source.mooc"
-    },
+    }
 }
