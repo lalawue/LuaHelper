@@ -240,6 +240,12 @@ func (a *Analysis) findGlobalVar(strName string, loc lexer.Location, strProPre s
 	gFindGlag bool, nameExp ast.Exp, binParentExp *ast.BinopExp) {
 	fileResult := a.curResult
 
+	if strings.HasSuffix(a.entryFile, ".mooc") {
+		if common.GConfig.IsIgnoreNameVar(strName) {
+			return
+		}
+	}
+
 	// 0) 如果是在第六轮， 判断传人的系统名字是变量还是函数
 	if a.isSixTerm() {
 		subExp, ok := nameExp.(*ast.NameExp)
