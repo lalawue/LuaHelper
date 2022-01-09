@@ -968,11 +968,14 @@ func (p *moocParser) parserClassDefStat(token lexer.TkKind) ast.Stat {
 	log.Debug("parserClassDefStat begin")
 	l := p.l
 
-	beginLoc := l.GetNowTokenLoc()
 	l.NextTokenKind(token)
 
 	_, cname := l.NextIdentifier() // name
-	cnameLoc := l.GetNowTokenLoc()
+	cnameBeginLoc := l.GetNowTokenLoc()
+
+	if cname == "ModelLink" {
+		log.Debug("ModelLink")
+	}
 
 	var super *ast.NameExp
 	if l.LookAheadKind() == lexer.TkSepColon {
@@ -992,20 +995,22 @@ func (p *moocParser) parserClassDefStat(token lexer.TkKind) ast.Stat {
 
 	// 类名
 	nameList := []string{cname}
-	locList := []lexer.Location{cnameLoc}
+	locList := []lexer.Location{cnameBeginLoc}
 	attrList := []ast.LocalAttr{ast.VDKREG}
 	expList := []ast.Exp{&ast.TableConstructorExp{
-		Loc: cnameLoc,
+		Loc: cnameBeginLoc,
 	}}
+	cnameEndLoc := l.GetNowTokenLoc()
 	nameStat := &ast.LocalVarDeclStat{
 		NameList:   nameList,
 		VarLocList: locList,
 		AttrList:   attrList,
 		ExpList:    expList,
-		Loc:        cnameLoc,
+		Loc:        lexer.GetRangeLoc(&cnameBeginLoc, &cnameEndLoc),
 	}
 
 	l.NextTokenKind(lexer.TkSepLcurly)
+	beginLoc := l.GetNowTokenLoc()
 
 	vfList := []*ast.AssignStat{}
 	for {
