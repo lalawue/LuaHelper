@@ -954,11 +954,13 @@ func (a *Analysis) cgAssignStat(node *ast.AssignStat) {
 			if isMooc && (node.Attr != ast.VDKEXPORT) {
 				// 如果是 mooc 非 export 场景，创建 local 变量
 				needDefineFlag = false
-				if nExps < (i + 1) {
-					// FIXME: 这里因为超出范围，先略过
-					continue
+				var exp ast.Exp
+				if nExps >= (i + 1) {
+					exp = node.ExpList[i]
+				} else {
+					exp = lastExp
 				}
-				exp := node.ExpList[i]
+
 				oneFunc, oneRefer := a.cgExp(exp, tmpVar, nil)
 				if oneRefer != nil {
 					oneRefer.ReferVarLocal = true
