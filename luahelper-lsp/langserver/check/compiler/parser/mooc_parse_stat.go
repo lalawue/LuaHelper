@@ -989,11 +989,6 @@ func (p *moocParser) parserClassDefStat(token lexer.TkKind) ast.Stat {
 			Name: sname,
 			Loc:  l.GetNowTokenLoc(),
 		}
-	} else {
-		super = &ast.NameExp{
-			Name: "table",
-			Loc:  l.GetNowTokenLoc(),
-		}
 	}
 
 	p.scopes.push(pscope_cl, cname)
@@ -1024,17 +1019,19 @@ func (p *moocParser) parserClassDefStat(token lexer.TkKind) ast.Stat {
 		Loc: lexer.GetRangeLoc(&cnameBeginLoc, &cnameEndLoc),
 	}
 
-	// 取巧定义 Super
-	superStat := &ast.LocalVarDeclStat{
-		NameList:   []string{"_"},
-		VarLocList: locList,
-		AttrList:   attrList,
-		ExpList:    []ast.Exp{super},
-		Loc:        lexer.GetRangeLoc(&cnameBeginLoc, &cnameEndLoc),
-	}
-
 	varList := make([]*ast.LocalVarDeclStat, 0)
-	varList = append(varList, nameStat, superStat, selfStat)
+	varList = append(varList, nameStat, selfStat)
+
+	// 取巧定义 Super
+	if super != nil {
+		varList = append(varList, &ast.LocalVarDeclStat{
+			NameList:   []string{"_"},
+			VarLocList: locList,
+			AttrList:   attrList,
+			ExpList:    []ast.Exp{super},
+			Loc:        lexer.GetRangeLoc(&cnameBeginLoc, &cnameEndLoc),
+		})
+	}
 
 	l.NextTokenKind(lexer.TkSepLcurly)
 	beginLoc := l.GetNowTokenLoc()
