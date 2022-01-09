@@ -152,9 +152,9 @@ type IllegalStat struct {
 //		}
 // }
 type ClassDefStat struct {
-	SType lexer.TkKind      // 可以是 class，struct 或者 extension
-	Super *NameExp          // super class name
-	Name  *LocalVarDeclStat // 包装为一个 local table
+	SType lexer.TkKind        // 可以是 class，struct 或者 extension
+	Super *NameExp            // super class name
+	Vars  []*LocalVarDeclStat // 名称，Self，Super
 	List  []*AssignStat
 	Loc   lexer.Location // 整体类的位置信息
 }
