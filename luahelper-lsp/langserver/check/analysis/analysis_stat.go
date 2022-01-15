@@ -1219,13 +1219,12 @@ func (a *Analysis) cgClassStat(node *ast.ClassDefStat) {
 	}
 
 	// class 作为 table 定义，在 class scope 外可见
+	a.cgAssignStat(node.Class)
 
-	for i, nf := range node.Vars {
+	// 这里是为了忽略 Self 和 super local assign stat
+	a.extMark = "class_def"
+	for _, nf := range node.Vars {
 		a.cgLocalVarDeclStat(nf)
-		if i == 0 {
-			// 这里是为了忽略 Self 和 super local assign stat
-			a.extMark = "class_def"
-		}
 	}
 	a.extMark = "class_scope"
 

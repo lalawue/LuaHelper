@@ -153,10 +153,11 @@ type IllegalStat struct {
 // }
 type ClassDefStat struct {
 	SType lexer.TkKind        // 可以是 class，struct 或者 extension
+	Class *AssignStat         // 可能是 export 的
 	Super *NameExp            // super class name
-	Vars  []*LocalVarDeclStat // 名称，Self，Super
-	List  []*AssignStat
-	Loc   lexer.Location // 整体类的位置信息
+	Vars  []*LocalVarDeclStat // Self，Super
+	List  []*AssignStat       // 变量，函数
+	Loc   lexer.Location      // 整体类的位置信息
 }
 
 // import "lpeg"

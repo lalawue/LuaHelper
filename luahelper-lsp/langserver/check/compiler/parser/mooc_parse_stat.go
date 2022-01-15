@@ -56,7 +56,7 @@ func (p *moocParser) parseStat() ast.Stat {
 	case lexer.TkKwLocal:
 		return p.parseLocalAssignOrFuncDefStat()
 	case lexer.TkKwClass, lexer.TkKwStruct, lexer.TkKwExtension:
-		return p.parserClassDefStat(token)
+		return p.parserClassDefStat(false, token)
 	case lexer.TkKwStatic:
 		return p.parseFuncDefStat(false, true)
 	case lexer.TkKwImport:
@@ -65,13 +65,16 @@ func (p *moocParser) parseStat() ast.Stat {
 		return p.parseDoStat(token)
 	case lexer.TkKwExport:
 		p.l.NextTokenKind(lexer.TkKwExport)
-		if p.l.LookAheadKind() == lexer.TkOpMul {
+		etoken := p.l.LookAheadKind()
+		switch etoken {
+		case lexer.TkOpMul:
 			p.l.NextTokenKind(lexer.TkOpMul)
 			return &ast.ExportAllStat{Loc: p.l.GetNowTokenLoc()}
-		}
-		if p.l.LookAheadKind() == lexer.TkKwFn {
+		case lexer.TkKwFn:
 			return p.parseFuncDefStat(true, false)
-		} else {
+		case lexer.TkKwClass, lexer.TkKwStruct:
+			return p.parserClassDefStat(true, etoken)
+		default:
 			return p.parseAssignOrFuncCallStat(true)
 		}
 	case lexer.IKIllegal:
@@ -964,25 +967,22 @@ func (p *moocParser) parseIKIllegalStat() *ast.EmptyStat {
 //		return b
 //	}
 // }
-func (p *moocParser) parserClassDefStat(token lexer.TkKind) ast.Stat {
-	log.Debug("parserClassDefStat begin")
+func (p *moocParser) parserClassDefStat(global bool, keyToken lexer.TkKind) ast.Stat {
 	l := p.l
 
-	l.NextTokenKind(token)
+	l.NextTokenKind(keyToken)
 
-	_, cname := l.NextIdentifier() // name
+	// class name
+	_, cname := l.NextIdentifier()
 	cnameBeginLoc := l.GetNowTokenLoc()
-
-	if cname == "ModelLink" {
-		log.Debug("ModelLink")
-	}
 
 	var super *ast.NameExp
 	if l.LookAheadKind() == lexer.TkSepColon {
-		if token == lexer.TkKwClass || token == lexer.TkKwExtension {
+		if keyToken == lexer.TkKwClass || keyToken == lexer.TkKwExtension {
 			l.NextTokenKind(lexer.TkSepColon)
 		} else {
 			p.insertParserErr(l.GetNowTokenLoc(), "struct can not inherit")
+			l.NextTokenKind(lexer.TkSepLcurly)
 		}
 		_, sname := l.NextIdentifier()
 		super = &ast.NameExp{
@@ -996,21 +996,31 @@ func (p *moocParser) parserClassDefStat(token lexer.TkKind) ast.Stat {
 		}
 	}
 
+	cnameEndLoc := l.GetNowTokenLoc()
 	p.scopes.push(pscope_cl, cname)
 
-	// 类名
-	locList := []lexer.Location{cnameBeginLoc}
-	attrList := []ast.LocalAttr{ast.VDKREG}
-	cnameEndLoc := l.GetNowTokenLoc()
-	nameStat := &ast.LocalVarDeclStat{
-		NameList:   []string{cname},
-		VarLocList: locList,
-		AttrList:   attrList,
+	// 类名，可以是 local 或者 export
+	var cattr ast.LocalAttr
+	if global || keyToken == lexer.TkKwExtension {
+		cattr = ast.VDKEXPORT
+	} else {
+		cattr = ast.VDKREG
+	}
+
+	clsStat := &ast.AssignStat{
+		VarList: []ast.Exp{&ast.NameExp{
+			Name: cname,
+			Loc:  lexer.GetRangeLoc(&cnameBeginLoc, &cnameEndLoc),
+		}},
 		ExpList: []ast.Exp{&ast.TableConstructorExp{
 			Loc: cnameBeginLoc,
 		}},
-		Loc: lexer.GetRangeLoc(&cnameBeginLoc, &cnameEndLoc),
+		Loc:  lexer.GetRangeLoc(&cnameBeginLoc, &cnameEndLoc),
+		Attr: cattr,
 	}
+
+	locList := []lexer.Location{cnameBeginLoc}
+	attrList := []ast.LocalAttr{ast.VDKREG}
 
 	// 取巧定义 Self
 	selfStat := &ast.LocalVarDeclStat{
@@ -1033,10 +1043,9 @@ func (p *moocParser) parserClassDefStat(token lexer.TkKind) ast.Stat {
 		Loc:        lexer.GetRangeLoc(&cnameBeginLoc, &cnameEndLoc),
 	}
 
-	varList := make([]*ast.LocalVarDeclStat, 0)
-	varList = append(varList, nameStat, selfStat, superStat)
+	varList := []*ast.LocalVarDeclStat{selfStat, superStat}
 
-	// 取巧定义 Super
+	// 取巧使用 Super
 	if super != nil {
 		varList = append(varList, &ast.LocalVarDeclStat{
 			NameList:   []string{"_"},
@@ -1087,15 +1096,16 @@ func (p *moocParser) parserClassDefStat(token lexer.TkKind) ast.Stat {
 
 	l.NextTokenKind(lexer.TkSepRcurly)
 	endLoc := l.GetNowTokenLoc()
-	loc := lexer.GetRangeLoc(&beginLoc, &endLoc)
-	log.Debug("parserClassDefStat end")
+
 	p.scopes.pop()
+
 	return &ast.ClassDefStat{
-		SType: token,
+		SType: keyToken,
+		Class: clsStat,
 		Super: super,
 		Vars:  varList,
 		List:  vfList,
-		Loc:   loc,
+		Loc:   lexer.GetRangeLoc(&beginLoc, &endLoc),
 	}
 }
 
