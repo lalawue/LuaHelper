@@ -46,8 +46,8 @@ function sendRequest(statusBar: StatusBarItem, client: LanguageClient) {
 
         if (openFlag === true) {
             if (onelineReturn.Num === 0) {
-                statusBar.text = "LuaHelper";
-                statusBar.tooltip = "LuaHelper";
+                statusBar.text = "MoocHelper";
+                statusBar.tooltip = "MoocHelper";
                 statusBar.show();
             } else {
                 if (vscode.env.language === "zh-cn" || vscode.env.language === "zh-tw") {
@@ -60,8 +60,8 @@ function sendRequest(statusBar: StatusBarItem, client: LanguageClient) {
                 statusBar.show();
             }
         } else {
-            statusBar.text = "LuaHelper";
-            statusBar.tooltip = "LuaHelper";
+            statusBar.text = "MoocHelper";
+            statusBar.tooltip = "MoocHelper";
             statusBar.show();
         }
     });
