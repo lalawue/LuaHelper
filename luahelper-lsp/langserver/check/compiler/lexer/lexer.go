@@ -325,6 +325,12 @@ func (l *Lexer) NextTokenStruct() {
 		l.next(1)
 		l.setNowToken(TkSepRcurly, "}")
 		return
+	case '!':
+		if l.test("!=") {
+			l.next(2)
+			l.setNowToken(TkOpNe, "~=")
+		}
+		return
 	case '+':
 		l.next(1)
 		l.setNowToken(TkOpAdd, "+")
