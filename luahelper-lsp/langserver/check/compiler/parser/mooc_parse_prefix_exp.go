@@ -81,27 +81,33 @@ func (p *moocParser) finishPrefixExp(exp ast.Exp, beginLoc *lexer.Location) ast.
 		case lexer.TkSepDot: // prefixexp ‘.’ Name
 			l.NextToken() // ‘.’
 			nextKind := l.LookAheadKind()
-			var loc lexer.Location
-			var filedName string
-			if nextKind == lexer.TkIdentifier {
-				_, filedName = l.NextIdentifier() // Name
-				loc = l.GetNowTokenLoc()
-			} else {
-				filedName = ""
-				loc = l.GetNowTokenLoc()
-				p.insertParserErr(loc, "missing field or attribute names")
-			}
+			switch nextKind {
+			case lexer.TkString, lexer.TkSepLcurly:
+				// print . "22", print . { 33 }
+				exp = p.finishFuncCallExp(exp)
+			default:
+				var loc lexer.Location
+				var filedName string
+				if nextKind == lexer.TkIdentifier {
+					_, filedName = l.NextIdentifier() // Name
+					loc = l.GetNowTokenLoc()
+				} else {
+					filedName = ""
+					loc = l.GetNowTokenLoc()
+					p.insertParserErr(loc, "missing field or attribute names")
+				}
 
-			keyExp := &ast.StringExp{
-				Str: filedName,
-				Loc: loc,
-			}
-			endLoc := l.GetNowTokenLoc()
-			tableLoc := lexer.GetRangeLoc(beginLoc, &endLoc)
-			exp = &ast.TableAccessExp{
-				PrefixExp: exp,
-				KeyExp:    keyExp,
-				Loc:       tableLoc,
+				keyExp := &ast.StringExp{
+					Str: filedName,
+					Loc: loc,
+				}
+				endLoc := l.GetNowTokenLoc()
+				tableLoc := lexer.GetRangeLoc(beginLoc, &endLoc)
+				exp = &ast.TableAccessExp{
+					PrefixExp: exp,
+					KeyExp:    keyExp,
+					Loc:       tableLoc,
+				}
 			}
 		case lexer.TkSepColon, // prefixexp ‘:’ Name args
 			lexer.TkSepLparen: // prefixexp args
