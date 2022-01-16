@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"luahelper-lsp/langserver/check/compiler/ast"
 	"luahelper-lsp/langserver/check/compiler/lexer"
-	"luahelper-lsp/langserver/log"
 )
 
 /*
@@ -1136,7 +1135,6 @@ func (p *moocParser) parserClassDefStat(global bool, keyToken lexer.TkKind) ast.
 // import A, B from "a" { a, b }
 // import concat, remove from table {}
 func (p *moocParser) parseImportStat() ast.Stat {
-	log.Debug("parse import stat begin")
 	l := p.l
 
 	beginLoc := l.GetNowTokenLoc()
@@ -1200,7 +1198,6 @@ func (p *moocParser) parseImportStat() ast.Stat {
 				if l.LookAheadKind() == lexer.TkIdentifier {
 					_, key := l.NextIdentifier()
 					if len(libLib) > 0 {
-						expList = append(expList, p.importSubLib(libLib, "", key, l.GetNowTokenLoc()))
 					} else {
 						expList = append(expList, p.importSubLib("require", libStr, key, l.GetNowTokenLoc()))
 					}
@@ -1224,23 +1221,35 @@ func (p *moocParser) parseImportStat() ast.Stat {
 				panic("name list and var list should be same")
 			}
 		} else {
-			// import A from "a"
-			if len(libStr) <= 0 {
+			if len(libStr) > 0 { // import A from "a"
+				prefixExp := &ast.NameExp{
+					Name: "require",
+					Loc:  lexer.GetRangeLoc(&fromLoc, &fromLoc),
+				}
+				fnCallExp := &ast.FuncCallExp{
+					PrefixExp: prefixExp,
+					Args: []ast.Exp{&ast.StringExp{
+						Str: libStr,
+						Loc: libLoc,
+					}},
+					Loc: lexer.GetRangeLoc(&fromLoc, &libLoc),
+				}
+				expList = []ast.Exp{fnCallExp}
+			} else if len(libLib) > 0 { // import A from table
+				// local A = table
+				return &ast.LocalVarDeclStat{
+					NameList:   []string{name0},
+					VarLocList: []lexer.Location{varLoc0},
+					AttrList:   []ast.LocalAttr{ast.VDKREG},
+					ExpList: []ast.Exp{&ast.NameExp{
+						Name: libLib,
+						Loc:  libLoc,
+					}},
+					Loc: lexer.GetRangeLoc(&varLoc0, &libLoc),
+				}
+			} else {
 				p.insertParserErr(l.GetPreTokenLoc(), "invalid libname, should be string")
 			}
-			prefixExp := &ast.NameExp{
-				Name: "require",
-				Loc:  lexer.GetRangeLoc(&fromLoc, &fromLoc),
-			}
-			fnCallExp := &ast.FuncCallExp{
-				PrefixExp: prefixExp,
-				Args: []ast.Exp{&ast.StringExp{
-					Str: libStr,
-					Loc: libLoc,
-				}},
-				Loc: lexer.GetRangeLoc(&fromLoc, &libLoc),
-			}
-			expList = []ast.Exp{fnCallExp}
 		}
 
 		endLoc := l.GetNowTokenLoc()
@@ -1253,7 +1262,6 @@ func (p *moocParser) parseImportStat() ast.Stat {
 		}
 	}
 
-	log.Debug("parse import stat end")
 	return &ast.ImportDefStat{
 		Lib:  libStat,
 		Name: nameStat,
