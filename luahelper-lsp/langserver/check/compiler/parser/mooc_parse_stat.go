@@ -788,14 +788,7 @@ func (p *moocParser) parseAssignStat(preLoc lexer.Location, var0 ast.Exp) ast.St
 			}},
 			Loc: loc,
 		}
-	} else {
-		if aheadKind != lexer.TkOpAssign {
-			nowLoc := l.GetNowTokenLoc()
-			loc := lexer.GetRangeLoc(&preLoc, &nowLoc)
-			p.insertParserErr(loc, "expression cannot be used as a statement")
-			return &ast.EmptyStat{}
-		}
-
+	} else if aheadKind == lexer.TkOpAssign {
 		l.NextTokenKind(lexer.TkOpAssign) // =
 		expList := p.parseExpList()       // explist
 		endLoc := l.GetNowTokenLoc()
@@ -805,6 +798,29 @@ func (p *moocParser) parseAssignStat(preLoc lexer.Location, var0 ast.Exp) ast.St
 			VarList: symList,
 			ExpList: expList,
 			Loc:     loc,
+		}
+	} else {
+		// as 'local a, b, c
+		endLoc := l.GetNowTokenLoc()
+		loc := lexer.GetRangeLoc(&preLoc, &endLoc)
+		nameList := []string{}
+		locList := []lexer.Location{}
+		attrList := []ast.LocalAttr{}
+		var expList []ast.Exp
+		for _, n := range symList {
+			switch exp := n.(type) {
+			case *ast.NameExp:
+				nameList = append(nameList, exp.Name)
+				locList = append(locList, exp.Loc)
+				attrList = append(attrList, ast.VDKEXPORT)
+			}
+		}
+		return &ast.LocalVarDeclStat{
+			NameList:   nameList,
+			VarLocList: locList,
+			AttrList:   attrList,
+			ExpList:    expList,
+			Loc:        loc,
 		}
 	}
 }
