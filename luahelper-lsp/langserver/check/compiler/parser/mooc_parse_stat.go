@@ -54,7 +54,14 @@ func (p *moocParser) parseStat() ast.Stat {
 	case lexer.TkKwFn:
 		return p.parseFuncDefStat(false, false)
 	case lexer.TkKwLocal:
-		return p.parseLocalAssignOrFuncDefStat()
+		p.l.NextTokenKind(lexer.TkKwLocal)
+		etoken := p.l.LookAheadKind()
+		switch etoken {
+		case lexer.TkKwClass, lexer.TkKwStruct:
+			return p.parserClassDefStat(false, etoken)
+		default:
+			return p.parseLocalAssignOrFuncDefStat()
+		}
 	case lexer.TkKwClass, lexer.TkKwStruct, lexer.TkKwExtension:
 		return p.parserClassDefStat(false, token)
 	case lexer.TkKwStatic:
@@ -649,7 +656,6 @@ func (p *moocParser) finishLocalNameList(name0 string, varLoc0 lexer.Location, k
 // local namelist [‘=’ explist]
 func (p *moocParser) parseLocalAssignOrFuncDefStat() ast.Stat {
 	l := p.l
-	l.NextTokenKind(lexer.TkKwLocal)
 	if l.LookAheadKind() == lexer.TkKwFn {
 		return p.finishLocalFuncDefStat()
 	}
