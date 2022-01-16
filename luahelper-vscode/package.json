@@ -1,8 +1,8 @@
 {
-    "name": "luahelper",
+    "name": "MoocHelper",
     "displayName": "MoocHelper",
     "description": "MoocHelper, Intellisense, Linting, Debugging, Code formatting, High-performance, and more.",
-    "version": "0.2.10",
+    "version": "0.2.10.20220116",
     "publisher": "lalawue",
     "author": {
         "name": "lalawue",
