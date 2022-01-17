@@ -4,7 +4,6 @@ import (
 	"flag"
 	"io"
 	"net"
-	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"sync"
@@ -17,9 +16,9 @@ import (
 )
 
 func main() {
-	go func() {
-		http.ListenAndServe("localhost:6060", nil)
-	}()
+	// go func() {
+	// 	http.ListenAndServe("localhost:6060", nil)
+	// }()
 	//debug.SetGCPercent(40)
 	modeFlag := flag.Int("mode", 0, "mode type, 0 is run cmd, 1 is local rpc, 2 is socket rpc")
 	logFlag := flag.Int("logflag", 0, "0 is not open log, 1 is open log")
