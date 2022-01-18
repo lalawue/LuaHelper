@@ -99,7 +99,7 @@ func (p *moocParser) parseSubExp(limit int) ast.Exp {
 
 func lookAheadAnonymousFnDef(tk lexer.TkKind) int {
 	switch tk {
-	case lexer.TkIdentifier, lexer.TkSepComma:
+	case lexer.TkIdentifier, lexer.TkVararg, lexer.TkSepComma:
 		return 1
 	case lexer.TkKwIn:
 		return 0
