@@ -521,7 +521,7 @@ func (a *Analysis) cgLocalVarDeclStat(node *ast.LocalVarDeclStat) {
 			}
 		}
 
-		switch exp.(type) {
+		switch e := exp.(type) {
 		case *ast.FuncDefExp:
 			// 定义为local abcd1 = function ()
 			varInfo.ReferFunc = oneFunc
@@ -534,6 +534,19 @@ func (a *Analysis) cgLocalVarDeclStat(node *ast.LocalVarDeclStat) {
 			// 最后一个表达式是函数调用
 			if i == nExps-1 {
 				lastExpFuncFlag = true
+			}
+		case *ast.TableAccessExp:
+			if ee, ok := e.PrefixExp.(*ast.FuncCallExp); ok {
+				if oneRefer == nil {
+					oneRefer = a.GetImportReferByCallExp(ee)
+				}
+				varInfo.ReferInfo = oneRefer
+				if oneRefer != nil {
+					varInfo.IsUse = true
+				}
+				if i == nExps-1 {
+					lastExpFuncFlag = true
+				}
 			}
 		}
 
@@ -1240,15 +1253,6 @@ func (a *Analysis) cgImportStat(node *ast.ImportDefStat) {
 	if node.Lib != nil {
 		a.cgFuncCallStat(node.Lib)
 	} else {
-		for _, exp := range node.Name.ExpList {
-			switch e := exp.(type) {
-			case *ast.FuncCallExp:
-				a.GetImportReferByCallExp(e)
-			default:
-				// FIXME: table access exp，这里需要对诸如 local name = require("lib").name 做引用解析
-				break
-			}
-		}
 		a.cgLocalVarDeclStat(node.Name)
 	}
 }
