@@ -4,6 +4,10 @@ For for MoonCake and Lua share the same token list in LSP backend, so LSP has so
 - keyword class, continue, default, defer, export, extension, fn, from, guard, public, static, struct, switch is keyword, can not use as variable name in Lua side
 - keyword can not directly use as table field in MoonCake LSP, such as { false = "12" } same as { ["false"] = 12 } in Lua side, but actually moocscript lpeg can do it well outside go parser in LSP
 
+you can add '.vscode/luahelper.json' in project dir to config ';' seperated LUA_PATH and LUA_CPATH, more refers to my [luahelper.json](luahelper.json) for example.
+
+--
+
 # LuaHelper Guide
 ![logo](/docs/images/logo.png)
 ## Introduction
