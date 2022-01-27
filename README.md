@@ -1,6 +1,6 @@
 MoocHelper is a LSP for [MoonCake](https://github.com/lalawue/mooncake) and Lua programming language，Modified from [LuaHelper](https://github.com/Tencent/LuaHelper).
 
-For for MoonCake and Lua share the same token list in LSP backend, so LSP has some limitations:
+For MoonCake and Lua share the same token list in LSP backend, so LSP has some limitations:
 - keyword class, continue, default, defer, export, extension, fn, from, guard, public, static, struct, switch is keyword, can not use as variable name in Lua side
 - keyword can not directly use as table field in MoonCake LSP, such as { false = "12" } same as { ["false"] = 12 } in Lua side, but actually moocscript lpeg can do it well outside go parser in LSP
 
