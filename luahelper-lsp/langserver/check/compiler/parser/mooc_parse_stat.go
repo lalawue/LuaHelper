@@ -997,7 +997,7 @@ func (p *moocParser) parserClassDefStat(global bool, keyToken lexer.TkKind) ast.
 	_, cname := l.NextIdentifier()
 	cnameBeginLoc := l.GetNowTokenLoc()
 
-	var super *ast.NameExp
+	var super ast.Exp
 	if l.LookAheadKind() == lexer.TkSepColon {
 		if keyToken == lexer.TkKwClass || keyToken == lexer.TkKwExtension {
 			l.NextTokenKind(lexer.TkSepColon)
@@ -1011,9 +1011,8 @@ func (p *moocParser) parserClassDefStat(global bool, keyToken lexer.TkKind) ast.
 			Loc:  l.GetNowTokenLoc(),
 		}
 	} else {
-		super = &ast.NameExp{
-			Name: "nil",
-			Loc:  l.GetNowTokenLoc(),
+		super = &ast.NilExp{
+			Loc: l.GetNowTokenLoc(),
 		}
 	}
 

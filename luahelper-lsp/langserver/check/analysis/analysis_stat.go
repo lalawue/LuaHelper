@@ -1226,8 +1226,11 @@ func (a *Analysis) cgAssignStat(node *ast.AssignStat) {
 func (a *Analysis) cgClassStat(node *ast.ClassDefStat) {
 
 	if node.SType == lexer.TkKwClass || node.SType == lexer.TkKwExtension {
-		if node.Super != nil && a.isFourTerm() {
-			a.findNameStr(node.Super, nil)
+		switch super := node.Super.(type) {
+		case *ast.NameExp:
+			if a.isFourTerm() {
+				a.findNameStr(super, nil)
+			}
 		}
 	}
 
