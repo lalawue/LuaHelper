@@ -241,7 +241,7 @@ func (a *Analysis) findGlobalVar(strName string, loc lexer.Location, strProPre s
 	fileResult := a.curResult
 
 	if strings.HasSuffix(a.entryFile, ".mooc") {
-		if common.GConfig.IsIgnoreNameVar(strName) {
+		if common.GConfig.MoocIsIgnoreNameVar(strName) {
 			return
 		}
 	}

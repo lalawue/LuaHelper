@@ -147,6 +147,9 @@ type GlobalConfig struct {
 
 	// 存放所有标准库和模块的全局变量，map管理；系统的函数和模块转换成想要的VarInfo，统一起来
 	SysVarMap map[string]*VarInfo
+
+	// Mooc 中忽略的全局变量名，涉及到 import lib from "lib" 中，将 from 映射为了 require
+	MoocIgnoreVarMap map[string]string
 }
 
 // GConfig *GlobalConfig 全局配置对象初始化
@@ -589,6 +592,8 @@ func (g *GlobalConfig) handleNotJSONCheckFlag(checkFlagList []bool, ignoreFileOr
 		}
 	}
 
+	g.MoocInsertIngoreSystemModule()
+
 	g.IgnoreVarMap = map[string]string{}
 }
 
@@ -757,6 +762,8 @@ func (g *GlobalConfig) ReadConfig(strDir, configFileName string, checkFlagList [
 		}
 	}
 
+	GConfig.MoocInsertIngoreSystemModule()
+
 	log.Debug("read ok")
 	return nil
 }
@@ -829,6 +836,56 @@ func (g *GlobalConfig) InsertIngoreSystemModule() {
 	g.IgnoreVarMap["xpcall"] = "function"
 	g.IgnoreVarMap["unpack"] = "function"
 	g.IgnoreVarMap["require"] = "function"
+}
+
+// 加载 mooc 忽略的全局变量
+func (g *GlobalConfig) MoocInsertIngoreSystemModule() {
+	g.MoocIgnoreVarMap = map[string]string{}
+	g.MoocIgnoreVarMap["debug"] = "module"
+	g.MoocIgnoreVarMap["math"] = "module"
+	g.MoocIgnoreVarMap["os"] = "module"
+	g.MoocIgnoreVarMap["io"] = "module"
+	g.MoocIgnoreVarMap["coroutine"] = "module"
+	g.MoocIgnoreVarMap["utf8"] = "module"
+	g.MoocIgnoreVarMap["table"] = "module"
+	g.MoocIgnoreVarMap["string"] = "module"
+	g.MoocIgnoreVarMap["package"] = "module"
+	g.MoocIgnoreVarMap["bit"] = "module"
+	g.MoocIgnoreVarMap["bit32"] = "module"
+	g.MoocIgnoreVarMap["jit"] = "module"
+	g.MoocIgnoreVarMap["arg"] = "variable"
+	g.MoocIgnoreVarMap["_G"] = "variable"
+	g.MoocIgnoreVarMap["_VERSION"] = "variable"
+	g.MoocIgnoreVarMap["assert"] = "function"
+	g.MoocIgnoreVarMap["collectgarbage"] = "function"
+	g.MoocIgnoreVarMap["dofile"] = "function"
+	g.MoocIgnoreVarMap["error"] = "function"
+	g.MoocIgnoreVarMap["getfenv"] = "function"
+	g.MoocIgnoreVarMap["getmetatable"] = "function"
+	g.MoocIgnoreVarMap["ipairs"] = "function"
+	g.MoocIgnoreVarMap["load"] = "function"
+	g.MoocIgnoreVarMap["loadfile"] = "function"
+	g.MoocIgnoreVarMap["loadstring"] = "function"
+	g.MoocIgnoreVarMap["module"] = "function"
+	g.MoocIgnoreVarMap["next"] = "function"
+	g.MoocIgnoreVarMap["pairs"] = "function"
+	g.MoocIgnoreVarMap["pcall"] = "function"
+	g.MoocIgnoreVarMap["print"] = "function"
+	g.MoocIgnoreVarMap["rawequal"] = "function"
+	g.MoocIgnoreVarMap["rawget"] = "function"
+	g.MoocIgnoreVarMap["rawlen"] = "function"
+	g.MoocIgnoreVarMap["rawset"] = "function"
+	g.MoocIgnoreVarMap["require"] = "function"
+	g.MoocIgnoreVarMap["select"] = "function"
+	g.MoocIgnoreVarMap["setfenv"] = "function"
+	g.MoocIgnoreVarMap["setmetatable"] = "function"
+	g.MoocIgnoreVarMap["tonumber"] = "function"
+	g.MoocIgnoreVarMap["tostring"] = "function"
+	g.MoocIgnoreVarMap["type"] = "function"
+	g.MoocIgnoreVarMap["warn"] = "function"
+	g.MoocIgnoreVarMap["xpcall"] = "function"
+	g.MoocIgnoreVarMap["unpack"] = "function"
+	g.MoocIgnoreVarMap["require"] = "function"
 }
 
 // InsertIngoreSystemAnnotateType 当为本地运行时，忽略系统的注解类型type。批量插入
@@ -1146,6 +1203,15 @@ func (g *GlobalConfig) IsIgnoreNameVar(strName string) bool {
 	}
 
 	return false
+}
+
+// 忽略 Mooc 相关的全局变量
+func (g *GlobalConfig) MoocIsIgnoreNameVar(strName string) bool {
+	if _, ok := g.MoocIgnoreVarMap[strName]; ok {
+		return true
+	} else {
+		return false
+	}
 }
 
 // GetGVarExtendFlag 查询_G.a 这样的全局符号，a是否会扩大到全局符号定义

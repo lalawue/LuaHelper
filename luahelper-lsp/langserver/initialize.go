@@ -168,6 +168,9 @@ func (l *LspServer) initialCheckProject(ctx context.Context, checkFlagList []boo
 		common.GConfig.InsertIngoreSystemModule()
 	}
 
+	// 加入 mooc 忽略的全局变量名
+	common.GConfig.MoocInsertIngoreSystemModule()
+
 	//  忽略系统的注解类型
 	common.GConfig.InsertIngoreSystemAnnotateType()
 
