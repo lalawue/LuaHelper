@@ -64,7 +64,7 @@ func transferSymbolVec(strFile string, level int, fileSymbolVec []common.FileSym
 		} else {
 			if oneSymbol.ContainerName == "local" {
 				if !isMooc {
-					fullName = "local " + fullName
+					fullName = oneSymbol.ContainerName + " " + fullName
 				}
 			} else {
 				fullName = oneSymbol.ContainerName + "." + fullName

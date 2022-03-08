@@ -7,14 +7,22 @@ import (
 )
 
 // 解析最基础的@type
-// ---@type MY_TYPE[|OTHER_TYPE] [@comment]
-// ---@type MY_TYPE[|OTHER_TYPE], MY_TYPE[|OTHER_TYPE] [@comment] [@comment]
+// ---@type [const] MY_TYPE[|OTHER_TYPE] [@comment]
+// ---@type [const] MY_TYPE[|OTHER_TYPE], [const] MY_TYPE[|OTHER_TYPE] [@comment] [@comment]
 func parserTypeState(l *annotatelexer.AnnotateLexer) annotateast.AnnotateState {
 	// skip type token
 	l.NextTokenOfKind(annotatelexer.ATokenKwType)
 
 	typeState := &annotateast.AnnotateTypeState{}
+
 	for {
+		if l.LookAheadKind() == annotatelexer.ATokenKwConst {
+			typeState.ListConst = append(typeState.ListConst, true)
+			l.NextTokenOfKind(annotatelexer.ATokenKwConst)
+		} else {
+			typeState.ListConst = append(typeState.ListConst, false)
+		}
+
 		oneType := parserOneType(l)
 		typeState.ListType = append(typeState.ListType, oneType)
 
@@ -44,6 +52,22 @@ func parserAliasState(l *annotatelexer.AnnotateLexer) annotateast.AnnotateState 
 	aliasState.Name = l.NextIdentifier()
 	aliasState.NameLoc = l.GetNowLoc()
 
+	aheadKind := l.LookAheadKind()
+	if aheadKind == annotatelexer.ATokenEOF {
+		// alias 没有类型，为这样的 ---@alias oneName
+		// 下一行有可能有内容，整体类似这样的，需要分析下一行的内容
+		// ---@alias oneName
+		// ---| '"r"' # Read data from this program by `file`.
+		// ---| '"w"' # Write data to this program by `file`.
+		return aliasState
+	} else if aheadKind == annotatelexer.ATokenAt {
+		// alias 没有类型，为这样的 ---@alias oneName @comment
+		// 获取其注释的内容
+		aliasState.Comment, aliasState.CommentLoc = l.GetRemainComment()
+		return aliasState
+	}
+
+	// 下面的为这行alias有具体的类型
 	// 解析映射的具体type
 	aliasState.AliasType = parserOneType(l)
 
@@ -54,8 +78,8 @@ func parserAliasState(l *annotatelexer.AnnotateLexer) annotateast.AnnotateState 
 }
 
 // 解析@class
-// ---@class MY_TYPE[:PARENT_TYPE] [@comment]
-// ---@class MY_TYPE{:PARENT_TYPE [,PARENT_TYPE]}
+// ---@class [strict] MY_TYPE[:PARENT_TYPE] [@comment]
+// ---@class [strict] MY_TYPE{:PARENT_TYPE [,PARENT_TYPE]}
 func parserClassState(l *annotatelexer.AnnotateLexer) annotateast.AnnotateState {
 	// skip class token
 	l.NextTokenOfKind(annotatelexer.ATokenKwClass)
@@ -291,7 +315,7 @@ func parseMarkState(l *annotatelexer.AnnotateLexer) (oneState annotateast.Annota
 
 	// 获取类型
 	state.MarkType = &annotateast.NormalType{
-		StrName:   "---",
+		StrName:   "@@@MARK@@@",
 		NameLoc:   l.GetNowLoc(),
 		ShowColor: false,
 	}

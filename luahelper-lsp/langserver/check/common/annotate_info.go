@@ -55,6 +55,7 @@ type FragmentTypeInfo struct {
 	LastLine    int                // 这块Type所在定义的最后行数
 	TypeList    []annotateast.Type // 每个AnnotateTypeState的TypeList拼接在这里面
 	CommentList []string           // 所有的类型的注释
+	ConstList   []bool             // 是否标记常量
 }
 
 // FragementParamInfo 单个块所对应的所有参数信息, 一个注释块，允许有多个 AnnotateParamState
@@ -66,6 +67,7 @@ type FragementParamInfo struct {
 // FragementReturnInfo 单个块对应的所有返回信息， 一个注释块，允许有多个 AnnotateReturnState
 type FragementReturnInfo struct {
 	ReturnTypeList []annotateast.Type // 每个AnnotateReturnState的ReturnTypeList拼接在这里面
+	CommentList    []string           // 每一个返回类型的comment
 }
 
 // FragementVarargInfo vararg信息
@@ -417,6 +419,7 @@ func (af *AnnotateFile) analysisAnnotateFragement(lastLine int, annotateFragment
 
 	returnInfo := FragementReturnInfo{
 		ReturnTypeList: []annotateast.Type{},
+		CommentList:    []string{},
 	}
 
 	genericInfo := FragementGenericInfo{
@@ -476,12 +479,17 @@ func (af *AnnotateFile) analysisAnnotateFragement(lastLine int, annotateFragment
 			paramInfo.ParamList = append(paramInfo.ParamList, state)
 
 		case *annotateast.AnnotateTypeState:
-			for _, subType := range state.ListType {
+			for i, subType := range state.ListType {
 				typeInfo.TypeList = append(typeInfo.TypeList, subType)
 				typeInfo.CommentList = append(typeInfo.CommentList, state.Comment)
+				typeInfo.ConstList = append(typeInfo.ConstList, state.ListConst[i])
 			}
 		case *annotateast.AnnotateReturnState:
 			returnInfo.ReturnTypeList = append(returnInfo.ReturnTypeList, state.ReturnTypeList...)
+			for i := 0; i < len(state.ReturnTypeList); i++ {
+				returnInfo.CommentList = append(returnInfo.CommentList, state.Comment)
+			}
+
 		case *annotateast.AnnotateGenericState:
 			for index, name := range state.NameList {
 				oneGenericInfo := OneGenericInfo{
@@ -611,6 +619,7 @@ func (af *AnnotateFile) generateNewType() {
 			}
 		}
 
+		// 3) 判断是否存在 mark 信息域
 		if fragment.MarkInfo != nil {
 			for _, oneMark := range fragment.MarkInfo.MarkInfoList {
 				oneTypeInfo := &CreateTypeInfo{

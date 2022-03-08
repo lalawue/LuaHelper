@@ -308,8 +308,7 @@ func (a *AllProject) gValueComplete(comParam *CommonFuncParam, completeVar *comm
 }
 
 // 前缀是_G符号
-func (a *AllProject) gPreComplete(comParam *CommonFuncParam,
-	completeVar *common.CompleteVarStruct) {
+func (a *AllProject) gPreComplete(comParam *CommonFuncParam, completeVar *common.CompleteVarStruct) {
 	// 1) 单纯_G符号的代码补全
 	lenStrVec := len(completeVar.StrVec)
 	// 最后的进行转换
@@ -352,40 +351,6 @@ func (a *AllProject) gPreComplete(comParam *CommonFuncParam,
 	}
 	symList := a.getDeepVarList(oldSymbol, varStruct, comParam)
 	a.varInfoDeepComplete(oldSymbol, symList, varStruct, completeVar, comParam)
-}
-
-// getVarCompleteExt 获取变量关联的所有子成员信息，用于代码补全
-// excludeMap 表示这次因为冒号语法剔除掉的字符串
-// colonFlag 表示是否获取冒号成员
-func (a *AllProject) getVarCompleteExt(fileName string, varInfo *common.VarInfo, colonFlag bool) {
-	if varInfo == nil || varInfo.SubMaps == nil {
-		return
-	}
-
-	for strName, oneVar := range varInfo.SubMaps {
-		if colonFlag && (oneVar.ReferFunc == nil || !oneVar.ReferFunc.IsColon) {
-			a.completeCache.InsertExcludeStr(strName)
-			// 只获取冒号成员
-			continue
-		}
-
-		// 对.的用法特殊提，能够提示：函数
-		getJugdeColon := common.GConfig.GetJudgeColonFlag()
-		if getJugdeColon != 0 && !colonFlag && (oneVar.ReferFunc != nil && oneVar.ReferFunc.IsColon) {
-			a.completeCache.InsertExcludeStr(strName)
-			continue
-		}
-
-		if a.completeCache.ExistStr(strName) {
-			continue
-		}
-
-		if getJugdeColon == 0 && !colonFlag && (oneVar.ReferFunc != nil && oneVar.ReferFunc.IsColon) {
-			a.completeCache.InsertCompleteVarInclude(fileName, strName, oneVar)
-		} else {
-			a.completeCache.InsertCompleteVar(fileName, strName, oneVar)
-		}
-	}
 }
 
 // CompleteResultCh 结构的协程封装
@@ -494,10 +459,13 @@ func (a *AllProject) varInfoDeepComplete(symbol *common.Symbol, symList []*commo
 
 	// 1) 没有追踪到最后的子项
 	if len(symList) == 0 {
+		a.expandNodefineMapComplete(fileName, strFind, comParam, completeVar, symbol.VarInfo)
+
 		// 只在当前文件做代码提示高级功能
-		sufThreeStrVec := completeVar.StrVec[1:]
+		//sufThreeStrVec := completeVar.StrVec[1:]
+
 		// 尝试用协程进行高级功能展开
-		a.getFileCompleteExt(fileName, strFind, comParam, completeVar, symbol.VarInfo, sufThreeStrVec)
+		//a.getFileCompleteExt(fileName, strFind, comParam, completeVar, symbol.VarInfo, sufThreeStrVec)
 		return
 	}
 
@@ -560,33 +528,33 @@ func (a *AllProject) varInfoDeepComplete(symbol *common.Symbol, symList []*commo
 
 	// 冒号语法不做高级提示功能
 	if explanFlag {
+		a.expandNodefineMapComplete(fileName, strFind, comParam, completeVar, symbol.VarInfo)
+
 		// 只在当前文件做代码提示高级功能
-		sufThreeStrVec := completeVar.StrVec[1:]
+		//sufThreeStrVec := completeVar.StrVec[1:]
 		// 尝试用协程进行高级功能展开
-		a.getFileCompleteExt(fileName, strFind, comParam, completeVar, symbol.VarInfo, sufThreeStrVec)
+		//a.getFileCompleteExt(fileName, strFind, comParam, completeVar, symbol.VarInfo, sufThreeStrVec)
 	}
 }
 
 // 查找所有的协议前缀
-func (a *AllProject) systemMoudleComplete(strModule string) (flag bool) {
-	flag = false
+func (a *AllProject) systemMoudleComplete(strModule string) bool {
 	oneModule, ok := common.GConfig.SystemModuleTipsMap[strModule]
 	if !ok {
-		return
+		return false
 	}
 
-	flag = true
 	// 提示该模块的所有函数
 	for strName, oneFunc := range oneModule.ModuleFuncMap {
 		a.completeCache.InsertCompleteSysModuleMem(strName, oneFunc.Detail,
 			oneFunc.Documentation, common.IKFunction)
 	}
 
-	for _, oneValue := range oneModule.ModuleVarVec {
-		a.completeCache.InsertCompleteSysModuleMem(oneValue.Label, oneValue.Detail,
-			oneValue.Documentation, common.IKVariable)
+	for _, oneVar := range oneModule.ModuleVarVec {
+		a.completeCache.InsertCompleteSysModuleMem(oneVar.Label, oneVar.Detail,
+			oneVar.Documentation, common.IKVariable)
 	}
-	return
+	return true
 }
 
 // 其他前缀代码补全
@@ -601,7 +569,7 @@ func (a *AllProject) otherPreComplete(comParam *CommonFuncParam, completeVar *co
 
 	strFind := completeVar.StrVec[0]
 
-	// 1) 是否为协议前缀 
+	// 1) 是否为协议前缀
 	if lenStrVec == 1 && completeVar.LastEmptyFlag {
 		if common.GConfig.IsStrProtocol(strFind) {
 			// 为协议前缀，返回所有的返回
@@ -621,22 +589,21 @@ func (a *AllProject) otherPreComplete(comParam *CommonFuncParam, completeVar *co
 
 	symbol, symList := a.FindVarDefine(comParam.fileResult.Name, &varStruct)
 	if symbol == nil {
-		// 判断是否在globalNodefineMaps中
-		strName := completeVar.StrVec[0]
-		findVar, ok := comParam.fileResult.NodefineMaps[strName]
-		if !ok {
+		// 判断是否为系统模块函数提示
+		if a.systemMoudleComplete(strFind) {
 			return
 		}
 
-		// 判断是否为系统模块函数提示
-		moduleFlag := a.systemMoudleComplete(strFind)
-		if moduleFlag {
-			return
+		// 判断是否在globalNodefineMaps中
+		strName := completeVar.StrVec[0]
+		if findVar, ok := comParam.fileResult.NodefineMaps[strName]; ok {
+			// 对NodefineMap内的变量进行展开代码补全
+			a.expandNodefineMapComplete(comParam.fileResult.Name, strName, comParam, completeVar, findVar)
 		}
 
 		// 遍历AST树，构造想要的代码补全数据
-		sufThreeStrVec := completeVar.StrVec[1:]
-		a.getFileCompleteExt(comParam.fileResult.Name, strName, comParam, completeVar, findVar, sufThreeStrVec)
+		//sufThreeStrVec := completeVar.StrVec[1:]
+		//a.getFileCompleteExt(comParam.fileResult.Name, strName, comParam, completeVar, findVar, sufThreeStrVec)
 		return
 	}
 
@@ -645,6 +612,11 @@ func (a *AllProject) otherPreComplete(comParam *CommonFuncParam, completeVar *co
 
 // 没有前缀的代码补全
 func (a *AllProject) noPreComplete(comParam *CommonFuncParam, completeVar *common.CompleteVarStruct) {
+	// 3.0) 先判断是否为函数参数的候选词代码补全
+	if a.paramCandidateComplete(comParam, completeVar) {
+		return
+	}
+
 	// 3) 单纯的文件范围内代码补全
 	// 3.1) 先把文件的局部范围变量放进来
 	fileName := comParam.fileResult.Name
@@ -723,18 +695,23 @@ func (a *AllProject) noPreComplete(comParam *CommonFuncParam, completeVar *commo
 			continue
 		}
 
-		detail := ""
-		a.completeCache.InsertCompleteNormal(strName, detail, "", common.IKVariable)
+		subVar := comParam.fileResult.NodefineMaps[strName]
+		a.completeCache.InsertCompleteVar(fileName, strName, subVar)
 	}
 }
 
 // 代码补全进行的分发
 func (a *AllProject) lspCodeComplete(comParam *CommonFuncParam, completeVar *common.CompleteVarStruct) {
+	a.GetCompleteCache().SetCompleteVar(completeVar)
+
 	// 1) 查找所有的_G符号
 	if completeVar.StrVec[0] == "_G" {
 		a.gPreComplete(comParam, completeVar)
 		return
 	}
+
+	// 判断是否为注解table中的key值补全, 增强修复
+	a.needAnnotateTableFieldRepair(comParam, completeVar)
 
 	// 2） 没有前缀的代码补全, len(completeVar.StrVec) == 1
 	if len(completeVar.StrVec) == 1 && !completeVar.LastEmptyFlag {
@@ -756,49 +733,107 @@ func (a *AllProject) ClearCompleteCache() {
 	a.completeCache.ResertData()
 }
 
-func (a *AllProject) getCommFunc(strFile string, line, ch int) (comParam *CommonFuncParam) {
-	// 1）先查找该文件是否存在
-	fileStruct := a.getVailidCacheFileStruct(strFile)
-	if fileStruct == nil {
-		log.Error("CodeComplete error, file not valid file=%s", strFile)
+func (a *AllProject) getVarCompleteData(varInfo *common.VarInfo, item *common.OneCompleteData) (luaFileStr string) {
+	// 是否为特殊的冒号补全
+	colonFlag := a.completeCache.GetColonFlag()
+	dirManager := common.GConfig.GetDirManager()
+
+	// 判断这个变量是否关联到了注解类型，如果有提取注解信息
+	symbol := common.GetDefaultSymbol(item.LuaFile, varInfo)
+	astType, strComment, strPreComment := a.getInfoFileAnnotateType(item.Label, symbol)
+	if astType != nil {
+		str := a.completeAnnotatTypeStr(astType, item.LuaFile, symbol.GetLine())
+		if strPreComment == "" {
+			item.Detail = str
+		} else if strPreComment == "type" {
+			item.Detail = item.Label + " : " + str
+		} else {
+			item.Detail = strPreComment + "  " + str
+		}
+
+		// 判断是否关联成number，如果是number类型尝试获取具体的值
+		strType := varInfo.GetVarTypeDetail()
+		if strings.HasPrefix(strType, "number: ") {
+			item.Detail = item.Detail + ": " + strings.TrimPrefix(strType, "number: ")
+		}
+
+		if strComment != "" {
+			item.Documentation = strComment
+		}
+
+		luaFileStr = dirManager.RemovePathDirPre(item.LuaFile)
 		return
 	}
 
-	var secondProject *results.SingleProjectResult
-	var thirdStruct *results.AnalysisThird
-	if fileStruct.IsCommonFile {
-		// 2) 查找该文件属于第哪个第二阶段的指针
-		secondProject = a.findMaxSecondProject(strFile)
-		// 3) 文件属于的第三阶段的指针
-		thirdStruct = a.thirdStruct
-	}
-	minScope, minFunc := fileStruct.FileResult.FindASTNode(line, ch)
-	if minScope == nil || minFunc == nil {
-		log.Error("CodeComplete error, minScope or minFunc is nil file=%s", strFile)
-		return
+	item.Detail = varInfo.GetVarTypeDetail()
+	expandFlag := false
+	var firstExistMap map[string]string = map[string]string{}
+	if item.Detail == "table" || len(varInfo.SubMaps) > 0 || len(varInfo.ExpandStrMap) > 0 {
+		item.Detail, firstExistMap = a.expandTableHover(symbol)
+		expandFlag = true
 	}
 
-	loc := lexer.Location{
-		StartLine:   line,
-		StartColumn: ch,
-		EndLine:     line,
-		EndColumn:   ch,
+	if item.Detail == "any" || expandFlag {
+		comParam := a.getCommFunc(item.LuaFile, varInfo.Loc.StartLine, varInfo.Loc.StartColumn)
+		if comParam == nil {
+			return
+		}
+
+		// 进行追踪出具体的信息
+		findExpList := []common.FindExpFile{}
+		// 这里也需要做判断，函数返回的变量逐层跟踪，目前只跟踪了一层
+		symList := a.FindDeepSymbolList(item.LuaFile, item.VarInfo.ReferExp, comParam, &findExpList, true, 1)
+		for _, symbolTmp := range symList {
+			// 判断是否为注解类型
+			if symbolTmp.AnnotateType != nil {
+				secondStr, sendExistMap := a.expandTableHover(symbolTmp)
+				item.Detail = item.Label + " : " + a.mergeTwoExistMap(symbol, item.Detail, firstExistMap, secondStr, sendExistMap)
+				break
+			}
+
+			if symbolTmp.VarInfo != nil {
+				strDetail := symbolTmp.VarInfo.GetVarTypeDetail()
+				if strDetail == "table" || len(symbolTmp.VarInfo.SubMaps) > 0 || len(symbolTmp.VarInfo.ExpandStrMap) > 0 {
+					secondStr, sendExistMap := a.expandTableHover(symbolTmp)
+					strDetail = a.mergeTwoExistMap(symbol, item.Detail, firstExistMap, secondStr, sendExistMap)
+				}
+
+				if strDetail != "any" {
+					item.Detail = strDetail
+				}
+
+				if symbolTmp.VarInfo.ReferFunc != nil {
+					strFunc := a.getFuncShowStr(symbol.VarInfo, item.Label, true, colonFlag, true)
+					item.Detail = "function " + strFunc
+				}
+
+				// 如果为引用的模块
+				if symbolTmp.VarInfo.ReferInfo != nil {
+					item.Detail = symbolTmp.VarInfo.ReferInfo.GetReferComment()
+				}
+			}
+		}
 	}
 
-	// 5) 开始真正的代码补全
-	comParam = &CommonFuncParam{
-		fileResult:    fileStruct.FileResult,
-		fi:            minFunc,
-		scope:         minScope,
-		loc:           loc,
-		secondProject: secondProject,
-		thirdStruct:   thirdStruct,
+	if varInfo.ReferFunc != nil {
+		strFunc := a.getFuncShowStr(symbol.VarInfo, item.Label, true, colonFlag, true)
+		item.Detail = "function " + strFunc
 	}
 
-	return comParam
+	// 如果为引用的模块
+	if varInfo.ReferInfo != nil {
+		item.Detail = varInfo.ReferInfo.GetReferComment()
+	}
+
+	line := varInfo.Loc.EndLine
+
+	// 获取变量的注释
+	strComment = a.GetLineComment(item.LuaFile, line)
+	strComment = GetStrComment(strComment)
+	item.Documentation = strComment
+	luaFileStr = dirManager.RemovePathDirPre(item.LuaFile)
+	return luaFileStr
 }
-
-
 
 // GetCompleteCacheIndexItem 获取单个缓存的结构
 func (a *AllProject) GetCompleteCacheIndexItem(index int) (item common.OneCompleteData, luaFileStr string, flag bool) {
@@ -807,11 +842,13 @@ func (a *AllProject) GetCompleteCacheIndexItem(index int) (item common.OneComple
 		return
 	}
 
-	// 是否为特殊的冒号补全
-	colonFlag := a.completeCache.GetColonFlag()
-
 	// 1) 为普通的配置，直接返回
 	if item.CacheKind == common.CKindNormal {
+		if item.ExpandVarInfo == nil {
+			return
+		}
+
+		luaFileStr = a.getCompleteExpandInfo(&item)
 		return
 	}
 
@@ -819,103 +856,7 @@ func (a *AllProject) GetCompleteCacheIndexItem(index int) (item common.OneComple
 
 	// 2) 配置的为变量
 	if item.CacheKind == common.CKindVar {
-		varInfo := item.VarInfo
-
-		// 判断这个变量是否关联到了注解类型，如果有提取注解信息
-		symbol := common.GetDefaultSymbol(item.LuaFile, varInfo)
-		astType, strComment, strPreComment := a.getInfoFileAnnotateType(item.Label, symbol)
-		if astType != nil {
-			//str := annotateast.TypeConvertStr(astType)
-			str := a.completeAnnotatTypeStr(astType, item.LuaFile, symbol.GetLine())
-			if strPreComment != "" {
-				if strPreComment == "type" {
-					item.Detail = item.Label + " : " + str
-				} else {
-					item.Detail = strPreComment + "  " + str
-				}
-			} else {
-				item.Detail = str
-			}
-
-			// 判断是否关联成number，如果是number类型尝试获取具体的值
-			strType := varInfo.GetVarTypeDetail()
-			if strings.HasPrefix(strType, "number: ") {
-				item.Detail = item.Detail + ": " + strings.TrimPrefix(strType, "number: ")
-			}
-
-			if strComment != "" {
-				item.Documentation = strComment
-			}
-
-			luaFileStr = dirManager.RemovePathDirPre(item.LuaFile)
-			return
-		}
-
-		item.Detail = varInfo.GetVarTypeDetail()
-		expandFlag := false
-		var firstExistMap map[string]string = map[string]string{}
-		if item.Detail == "table" || len(varInfo.SubMaps) > 0 {
-			item.Detail, firstExistMap = a.expandTableHover(symbol)
-			expandFlag = true
-		}
-
-		if item.Detail == "any" || expandFlag {
-			comParam := a.getCommFunc(item.LuaFile, varInfo.Loc.StartLine, varInfo.Loc.StartColumn)
-			if comParam == nil {
-				return
-			}
-
-			// 进行追踪出具体的信息
-			findExpList := []common.FindExpFile{}
-			// 这里也需要做判断，函数返回的变量逐层跟踪，目前只跟踪了一层
-			symList := a.FindDeepSymbolList(item.LuaFile, item.VarInfo.ReferExp, comParam, &findExpList, true, 1)
-			for _, symbolTmp := range symList {
-				// 判断是否为注解类型
-				if symbolTmp.AnnotateType != nil {
-					secondStr, sendExistMap := a.expandTableHover(symbolTmp)
-					item.Detail = item.Label + " : " + a.mergeTwoExistMap(symbol, item.Detail, firstExistMap, secondStr, sendExistMap)
-					break
-				} else if symbolTmp.VarInfo != nil {
-					strDetail := symbolTmp.VarInfo.GetVarTypeDetail()
-					if strDetail == "table" || len(symbolTmp.VarInfo.SubMaps) > 0 {
-						secondStr, sendExistMap := a.expandTableHover(symbolTmp)
-						//strDetail = a.expandTableHover(symbolTmp)
-						strDetail = a.mergeTwoExistMap(symbol, item.Detail, firstExistMap, secondStr, sendExistMap)
-					}
-
-					if strDetail != "any" {
-						item.Detail = strDetail
-					}
-
-					if symbolTmp.VarInfo.ReferFunc != nil {
-						item.Detail = "function " + symbolTmp.VarInfo.ReferFunc.GetFuncCompleteStr(item.Label, true, colonFlag)
-					}
-
-					// 如果为引用的模块
-					if symbolTmp.VarInfo.ReferInfo != nil {
-						item.Detail = symbolTmp.VarInfo.ReferInfo.GetReferComment()
-					}
-				}
-			}
-		}
-
-		if varInfo.ReferFunc != nil {
-			item.Detail = "function " + varInfo.ReferFunc.GetFuncCompleteStr(item.Label, true, colonFlag)
-		}
-
-		// 如果为引用的模块
-		if varInfo.ReferInfo != nil {
-			item.Detail = varInfo.ReferInfo.GetReferComment()
-		}
-
-		line := varInfo.Loc.EndLine
-
-		// 获取变量的注释
-		strComment = a.GetLineComment(item.LuaFile, line)
-		strComment = GetStrComment(strComment)
-		item.Documentation = strComment
-		luaFileStr = dirManager.RemovePathDirPre(item.LuaFile)
-
+		luaFileStr = a.getVarCompleteData(item.VarInfo, &item)
 		return
 	}
 
@@ -932,11 +873,11 @@ func (a *AllProject) GetCompleteCacheIndexItem(index int) (item common.OneComple
 
 			luaFileStr = dirManager.RemovePathDirPre(typeOne.AliasInfo.LuaFile)
 		} else if typeOne.ClassInfo != nil {
-			item.Detail = "class " + typeOne.ClassInfo.ClassState.Name
+			item.Detail = typeOne.ClassInfo.ClassState.Name
 			if len(typeOne.ClassInfo.ClassState.ParentNameList) > 0 {
 				item.Detail = item.Detail + " : " + strings.Join(typeOne.ClassInfo.ClassState.ParentNameList, " , ")
 			} else {
-				item.Detail = "class " + typeOne.ClassInfo.ClassState.Name + a.getClassFieldStr(typeOne.ClassInfo)
+				item.Detail = item.Detail + a.getClassFieldStr(typeOne.ClassInfo)
 			}
 
 			strComment := typeOne.ClassInfo.ClassState.Comment
@@ -950,6 +891,8 @@ func (a *AllProject) GetCompleteCacheIndexItem(index int) (item common.OneComple
 		return
 	}
 
+	// 是否为特殊的冒号补全
+	colonFlag := a.completeCache.GetColonFlag()
 	// 4) 配置的为注解field信息
 	if item.CacheKind == common.CkindClassField {
 		if colonFlag {
@@ -958,8 +901,7 @@ func (a *AllProject) GetCompleteCacheIndexItem(index int) (item common.OneComple
 				// 判断是否为隐藏式的，如果是隐藏式的，去掉第一个参数
 				// ---@class ClassA
 				// ---@field FunctionC fun(self:ClassA):void
-				oneFuncType := annotateast.GetAllFuncType(item.FieldState.FiledType)
-				if oneFuncType != nil {
+				if oneFuncType := annotateast.GetAllFuncType(item.FieldState.FiledType); oneFuncType != nil {
 					subFuncType, _ := oneFuncType.(*annotateast.FuncType)
 					item.Detail = annotateast.FuncTypeConvertStr(subFuncType, 1)
 				}
@@ -973,8 +915,7 @@ func (a *AllProject) GetCompleteCacheIndexItem(index int) (item common.OneComple
 			// ---@class ClassA
 			// ---@field FunctionC : fun():void
 			if item.FieldColonFlag == annotateast.FieldColonYes {
-				oneFuncType := annotateast.GetAllFuncType(item.FieldState.FiledType)
-				if oneFuncType != nil {
+				if oneFuncType := annotateast.GetAllFuncType(item.FieldState.FiledType); oneFuncType != nil {
 					subFuncType, _ := oneFuncType.(*annotateast.FuncType)
 					item.Detail = annotateast.FuncTypeConvertStr(subFuncType, 2)
 				}

@@ -82,8 +82,8 @@ func (a *Analysis) findStrReferVarInfo(strName string, loc lexer.Location, gFlag
 
 	// 3) 查找局部变量指向的函数信息
 	if !gFlag {
-		if ok, locVarInfo := scope.FindLocVar(strName, loc); ok {
-			return locVarInfo
+		if locVar, ok := scope.FindLocVar(strName, loc); ok {
+			return locVar
 		}
 	}
 
@@ -171,7 +171,6 @@ func (a *Analysis) getTableAccessRelateVar(node *ast.TableAccessExp) (locVar *co
 		return
 	}
 
-	subGlobal, _ := subMaps[strKey]
-	locVar = subGlobal
+	locVar = subMaps[strKey]
 	return
 }

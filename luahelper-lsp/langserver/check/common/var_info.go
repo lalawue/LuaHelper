@@ -95,6 +95,7 @@ type VarInfo struct {
 	ReferInfo       *ReferInfo          // 指向是否引用了其他的lua文件, nil表示没有指向
 	ReferFunc       *FuncInfo           // 如果变量是定义的函数类型，指向函数定义的func，nil表示没有指向
 	SubMaps         map[string]*VarInfo // 包含的所有成员信息,构造的，例如 local a = {} a.b = 1, 其中b就是a的成员信息，绑定起来
+	ExpandStrMap    map[string]struct{} // 字符串展开存储的字符串map。// local a = { }// print(a.b.c) // a变量的身上挂了一个字符串属性：b.c; ss.data , 当输入ss.时候，自动代码提示data
 	ExtraGlobal     *ExtraGlobal        // 当变量指向全局变量时候，扩展的全局变量信息，如果为nil，表示局部变量。
 	Loc             lexer.Location      // 初始定义的位置信息
 	NoUseAssignLocs []lexer.Location    // 局部变量定义了，未直接使用，后面有对其赋值，记录下所有的位置
@@ -491,6 +492,69 @@ func (varInfo *VarInfo) HasDeepSubVarInfo(subSymbol *VarInfo) bool {
 		if oneVar.HasDeepSubVarInfo(subSymbol) {
 			return true
 		}
+	}
+
+	return false
+}
+
+func findValidKey(oneExp *ast.TableConstructorExp, strTableKey string, line int, charactor int) bool {
+	for index, keyExp := range oneExp.KeyExps {
+		if keyExp == nil {
+			// 查看value
+			if len(oneExp.ValExps) <= index {
+				continue
+			}
+
+			valueExp := oneExp.ValExps[index]
+			nameExp, ok := valueExp.(*ast.NameExp)
+			if !ok {
+				continue
+			}
+
+			if nameExp.Name != strTableKey {
+				continue
+			}
+
+			if nameExp.Loc.IsInLocStruct(line, charactor) {
+				return true
+			}
+		} else {
+			strExp, ok := keyExp.(*ast.StringExp)
+			if !ok {
+				continue
+			}
+
+			if strExp.Str != strTableKey {
+				continue
+			}
+
+			if strExp.Loc.IsInLocStruct(line, charactor) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// IsHasReferTableKey 判断这个变量是否指向一个table，且它的key是一个strTableKey；或是是key为nil，value为strTableKey
+func (varInfo *VarInfo) IsHasReferTableKey(strTableKey string, line int, charactor int) bool {
+	referExp := varInfo.ReferExp
+	if referExp == nil {
+		return false
+	}
+
+	oneExp, ok := referExp.(*ast.TableConstructorExp)
+	if !ok {
+		return false
+	}
+
+	if !oneExp.Loc.IsInLocStruct(line, charactor) {
+		return false
+	}
+
+	if findValidKey(oneExp, strTableKey, line, charactor) {
+		return true
 	}
 
 	return false

@@ -9,7 +9,7 @@ import (
 )
 
 // TextDocumentRename 批量更改名字
-func (l *LspServer) TextDocumentRename(ctx context.Context, vs lsp.RenameParams) (edit lsp.WorkspaceEdit, err error) {
+func (l *LspServer)TextDocumentRename(ctx context.Context, vs lsp.RenameParams) (edit lsp.WorkspaceEdit, err error) {
 	// 判断打开的文件，是否是需要分析的文件
 	comResult := l.beginFileRequest(vs.TextDocument.URI, vs.Position)
 	if !comResult.result {

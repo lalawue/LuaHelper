@@ -10,12 +10,6 @@ import (
 	"luahelper-lsp/langserver/log"
 )
 
-// IgnoreAssignOR 忽略a = a or 0 其中a没有定义的告警
-type IgnoreAssignOR struct {
-	strName string // 变量定义的名字
-	line    int    // 行号
-}
-
 // IgnoreInfo 忽略的信息
 type IgnoreInfo struct {
 	strName    string // 变量定义的名字
@@ -248,11 +242,7 @@ func (a *Analysis) insertSecondProjectAnalysis(strFile string, secondAnalysisFil
 // 判断二阶段工程分析中，AnalysisFileResult是否已经存在了
 func (a *Analysis) isExistSecondProjectAnalysis(strFile string) bool {
 	fileResult := a.SingleProjectResult.AnalysisFileMap[strFile]
-	if fileResult == nil {
-		return false
-	}
-
-	return true
+	return fileResult != nil
 }
 
 // 第一轮遍历AST的处理
@@ -437,40 +427,87 @@ func (a *Analysis) CheckTableDecl(strTableName string, strFieldNamelist []string
 		return
 	}
 
-	// if common.GConfig.IsGlobalIgnoreErrType(common.CheckErrorClassField) {
-	// 	return
-	// }
-	// if strTableName == "tableA" {
-	// 	strTableName = "tableA"
-	// }
+	if common.GConfig.IsGlobalIgnoreErrType(common.CheckErrorClassField) {
+		return
+	}
 
 	if strTableName == "" || len(strFieldNamelist) == 0 || nodeLoc == nil || node == nil {
 		return
 	}
 
-	isStrict, fieldMap, className := a.Projects.GetAnnotateClass(a.curResult.Name, strTableName, nil, nodeLoc.StartLine-1, a.curScope)
-	if !isStrict || len(fieldMap) == 0 {
+	isStrict, isMemberMap, className := a.Projects.IsMemberOfAnnotateClassByLoc(a.curResult.Name, strFieldNamelist, nodeLoc.StartLine-1)
+	if !isStrict || len(isMemberMap) == 0 {
 		return
 	}
 
-	for _, strFieldName := range strFieldNamelist {
+	for strFieldName, isMember := range isMemberMap {
 		if !common.JudgeSimpleStr(strFieldName) {
 			continue
 		}
 
-		if fieldMap[strFieldName] {
+		if isMember {
 			log.Debug("CheckTableDec currect, tableName=%s, keyName=%s", strTableName, strFieldName)
 		} else {
 			ok, keyLoc := common.GetTableConstructorExpKeyStrLoc(*node, strFieldName)
 
 			if ok {
 				errStr := fmt.Sprintf("the field (%s), is not a member of (%s)", strFieldName, className)
-				a.curResult.InsertError(common.CheckErrorSelfAssign, errStr, keyLoc)
-				//a.curResult.InsertError(common.CheckErrorClassField, errStr, nodeLoc)
+				a.curResult.InsertError(common.CheckErrorClassField, errStr, keyLoc)
 			}
 		}
 	}
-	return
+}
+
+func (a *Analysis) FindVarDefineForCheck(varName string, loc lexer.Location) (find bool, varInfo *common.VarInfo) {
+	find = false
+	//先尝试找local变量
+	varInfo, find = a.curScope.FindLocVar(varName, loc)
+	if find {
+		return find, varInfo
+	}
+
+	//没找到就找全局变量
+	fi := a.curFunc
+	firstFile := a.getFirstFileResult(a.curResult.Name)
+
+	gFlag := false
+	strName := varName
+	strProPre := ""
+
+	fileResult := a.curResult
+	if a.isSecondTerm() {
+		secondFileResult := fileResult
+		if fi.FuncLv == 0 {
+			// 最顶层的函数，只在前面的定义中查找
+			find, varInfo = secondFileResult.FindGlobalVarInfo(strName, gFlag, strProPre)
+			if !find {
+				find, varInfo = a.SingleProjectResult.FindGlobalGInfo(strName, results.CheckTermSecond, strProPre)
+			}
+		} else {
+			// 非底层的函数，需要查找全局的变量
+			find, varInfo = firstFile.FindGlobalVarInfo(strName, gFlag, strProPre)
+			if !find {
+				find, varInfo = a.SingleProjectResult.FindGlobalGInfo(strName, results.CheckTermFirst, strProPre)
+			}
+		}
+	} else if a.isThirdTerm() {
+		thirdFileResult := fileResult
+		if fi.FuncLv == 0 {
+			// 最顶层的函数，只在前面的定义中查找
+			find, varInfo = thirdFileResult.FindGlobalVarInfo(strName, gFlag, strProPre)
+		} else {
+			// 非底层的函数，需要查找全局的变量
+			find, varInfo = firstFile.FindGlobalVarInfo(strName, gFlag, strProPre)
+		}
+
+		// 查找所有的
+		if !find {
+			find, varInfo = a.AnalysisThird.ThirdStruct.FindThirdGlobalGInfo(gFlag, strName, strProPre)
+		}
+	}
+
+	return find, varInfo
+
 }
 
 // 根据注解判断table成员合法性 包括 t.a t可以是符号 或者函数参数
@@ -479,9 +516,9 @@ func (a *Analysis) checkTableAccess(node *ast.TableAccessExp) {
 		return
 	}
 
-	// if common.GConfig.IsGlobalIgnoreErrType(common.CheckErrorClassField) {
-	// 	return
-	// }
+	if common.GConfig.IsGlobalIgnoreErrType(common.CheckErrorClassField) {
+		return
+	}
 
 	strTable := common.GetExpName(node.PrefixExp)
 	strTableName := common.GetSimpleValue(strTable)
@@ -489,9 +526,9 @@ func (a *Analysis) checkTableAccess(node *ast.TableAccessExp) {
 		return
 	}
 
-	// if strTableName == "tableA" {
-	// 	strTableName = "tableA"
-	// }
+	if strTableName == "tableB" {
+		strTableName = "tableB"
+	}
 
 	strKey := common.GetExpName(node.KeyExp)
 	// 如果不是简单字符，退出
@@ -499,90 +536,61 @@ func (a *Analysis) checkTableAccess(node *ast.TableAccessExp) {
 		return
 	}
 
-	find := false
-	//先尝试找local变量
-	ok, varInfo := a.curScope.FindLocVar(strTableName, node.Loc)
-	if ok {
-		//decLine = locVarInfo.Loc.StartLine - 1
-		find = true
-	} else {
-		fi := a.curFunc
-		firstFile := a.getFirstFileResult(a.curResult.Name)
-
-		gFlag := false
-		strName := strTableName
-		strProPre := ""
-
-		// 4) 第三步查找全局中是否有该变量
-		fileResult := a.curResult
-		if a.isSecondTerm() {
-			secondFileResult := fileResult
-			if fi.FuncLv == 0 {
-				// 最顶层的函数，只在前面的定义中查找
-				ok, varInfo = secondFileResult.FindGlobalVarInfo(strName, gFlag, strProPre)
-				if ok {
-					find = true
-				} else {
-					ok, varInfo = a.SingleProjectResult.FindGlobalGInfo(strName, results.CheckTermSecond, strProPre)
-					if ok {
-						find = true
-					}
-				}
-			} else {
-				// 非底层的函数，需要查找全局的变量
-				ok, varInfo = firstFile.FindGlobalVarInfo(strName, gFlag, strProPre)
-				if ok {
-					find = true
-				} else {
-					ok, varInfo = a.SingleProjectResult.FindGlobalGInfo(strName, results.CheckTermFirst, strProPre)
-					if ok {
-						find = true
-					}
-				}
-			}
-		} else if a.isThirdTerm() {
-			thirdFileResult := fileResult
-			if fi.FuncLv == 0 {
-				// 最顶层的函数，只在前面的定义中查找
-				ok, varInfo = thirdFileResult.FindGlobalVarInfo(strName, gFlag, strProPre)
-				if ok {
-					find = true
-				}
-			} else {
-				// 非底层的函数，需要查找全局的变量
-				ok, varInfo = firstFile.FindGlobalVarInfo(strName, gFlag, strProPre)
-				if ok {
-					find = true
-				}
-			}
-
-			// 查找所有的
-			if !find {
-				ok, varInfo = a.AnalysisThird.ThirdStruct.FindThirdGlobalGInfo(gFlag, strName, strProPre)
-				if ok {
-					find = true
-				}
-			}
-		}
-	}
-
-	if !find {
+	ok, varInfo := a.FindVarDefineForCheck(strTableName, node.Loc)
+	if !ok {
 		return
 	}
 
-	isStrict, fieldMap, className := a.Projects.GetAnnotateClass(a.curResult.Name, strTableName, varInfo, 0, a.curScope)
-	if !isStrict || len(fieldMap) == 0 {
+	isStrict, isMember, className := a.Projects.IsMemberOfAnnotateClassByVar(strKey, strTableName, varInfo)
+	if !isStrict || isMember {
 		return
 	}
 
-	if fieldMap[strKey] {
-		log.Debug("checkTableAccess currect, tableName=%s, keyName=%s", strTableName, strKey)
-	} else {
-		errStr := fmt.Sprintf("the field (%s), is not a member of (%s)", strKey, className)
-		a.curResult.InsertError(common.CheckErrorSelfAssign, errStr, node.Loc)
-		//a.curResult.InsertError(common.CheckErrorClassField, errStr, node.Loc)
+	errStr := fmt.Sprintf("the field (%s), is not a member of (%s)", strKey, className)
+	a.curResult.InsertError(common.CheckErrorClassField, errStr, node.Loc)
+}
+
+// 是否给常量赋值
+func (a *Analysis) checkConstAssgin(node ast.Exp) {
+	if !a.isNeedCheck() || a.realTimeFlag {
+		return
 	}
 
-	return
+	if common.GConfig.IsGlobalIgnoreErrType(common.CheckErrorConstAssign) {
+		return
+	}
 
+	name := ""
+	loc := lexer.Location{}
+	switch exp := node.(type) {
+	case *ast.NameExp:
+		name = exp.Name
+		loc = exp.Loc
+		//case *ast.ParensExp:
+		//loc = exp
+	case *ast.TableAccessExp:
+		strTable := common.GetExpName(exp.PrefixExp)
+		name = common.GetSimpleValue(strTable)
+		loc = common.GetTablePrefixLoc(exp)
+	}
+
+	if len(name) <= 0 {
+		return
+	}
+
+	if name == "tableB" {
+		name = "tableB"
+	}
+
+	ok, varInfo := a.FindVarDefineForCheck(name, loc)
+	if !ok {
+		return
+	}
+
+	if a.Projects.IsAnnotateTypeConst(varInfo) {
+		//标记了常量，却赋值
+		errStr := fmt.Sprintf("(%s) is const, can not assgin", name)
+		a.curResult.InsertError(common.CheckErrorConstAssign, errStr, loc)
+		//a.curResult.InsertError(common.CheckErrorConstAssign, errStr, loc)
+	}
 }

@@ -12,12 +12,12 @@ import (
 )
 
 // WorkspaceChangeWorkspaceFolders 文件夹有变化
-func (l *LspServer) WorkspaceChangeWorkspaceFolders(ctx context.Context, params lsp.DidChangeWorkspaceFoldersParams) error {
+func (l *LspServer)WorkspaceChangeWorkspaceFolders(ctx context.Context, params lsp.DidChangeWorkspaceFoldersParams) error {
 	for _, oneFolder := range params.Event.Added {
 		folderPath := pathpre.VscodeURIToString(oneFolder.URI)
 		l.addWorkspaceFolder(ctx, folderPath)
 	}
-
+	
 	for _, oneFolder := range params.Event.Removed {
 		folderPath := pathpre.VscodeURIToString(oneFolder.URI)
 		l.removeWorkspaceFolder(ctx, folderPath)
@@ -26,7 +26,7 @@ func (l *LspServer) WorkspaceChangeWorkspaceFolders(ctx context.Context, params 
 }
 
 // addWorkspaceFolder 处理增加文件夹
-func (l *LspServer) addWorkspaceFolder(ctx context.Context, dirpath string) {
+func (l *LspServer)addWorkspaceFolder(ctx context.Context, dirpath string) {
 	l.requestMutex.Lock()
 	defer l.requestMutex.Unlock()
 	dirManager := common.GConfig.GetDirManager()
@@ -58,7 +58,7 @@ func (l *LspServer) addWorkspaceFolder(ctx context.Context, dirpath string) {
 		// 需要去处理文件的变化
 		log.Debug("need to handle file venent changes num=%d", len(addFileEvent))
 		// 处理所有的文件变化
-		allProject.HandleFileEventChanges(addFileEvent)
+		allProject.HandleFileEventChanges(addFileEvent) 
 
 		// 再一次获取所有诊断信息
 		l.pushAllDiagnosticsAgain(ctx)
@@ -69,13 +69,13 @@ func (l *LspServer) addWorkspaceFolder(ctx context.Context, dirpath string) {
 }
 
 // removeWorkspaceFolder 处理移除文件夹
-func (l *LspServer) removeWorkspaceFolder(ctx context.Context, dirpath string) {
+func (l *LspServer)removeWorkspaceFolder(ctx context.Context, dirpath string) {
 	l.requestMutex.Lock()
 	defer l.requestMutex.Unlock()
 	dirManager := common.GConfig.GetDirManager()
 
 	if !dirManager.RemoveOneSubDir(dirpath) {
-		log.Debug("remove error :%s", dirpath)
+		log.Debug("remove error :%s", dirpath)	
 	}
 
 	// 若移除的是subDirs 中的文件夹， 则直接进行所有文件删除处理

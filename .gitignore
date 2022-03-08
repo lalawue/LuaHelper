@@ -1,2 +1,5 @@
 luahelper-lsp/luahelper-lsp
 luahelper-lsp/log.txt
+luahelper-vscode/server/linuxlualsp
+luahelper-vscode/server/maclualsp
+luahelper-vscode/server/lualsp.exe

@@ -7,6 +7,7 @@ import (
 	"luahelper-lsp/langserver/check/compiler/lexer"
 	"luahelper-lsp/langserver/check/results"
 	"luahelper-lsp/langserver/log"
+	"strings"
 	"time"
 )
 
@@ -29,7 +30,12 @@ func (a *AllProject) checkOneFileType(annotateFile *common.AnnotateFile, fragemn
 			continue
 		}
 
-		if str == "..." || str == "---" {
+		// -- MARK:
+		if str == "@@@MARK@@@" {
+			continue
+		}
+
+		if str == "..." {
 			continue
 		}
 
@@ -380,6 +386,7 @@ func (a *AllProject) getAllNormalAnnotateClass(astType annotateast.Type, fileNam
 
 	// 2) 因此判断某一个简单的字符串进行处理
 	strMap := map[string]bool{}
+	strMap["any"] = true
 	classList = a.getInLineAllNormalAnnotateClass(astType, fileName, lastLine, repeatTypeList, strMap)
 	return classList
 }
@@ -445,6 +452,10 @@ func (a *AllProject) getClassTypeInfoList(strName string, fileName string, lastL
 
 			// 所有父类型也处理下，再次递归获取
 			for _, strParent := range createBestType.ClassInfo.ClassState.ParentNameList {
+				if _, ok := strMap[strParent]; ok {
+					continue
+				}
+
 				if strName == strParent {
 					continue
 				}
@@ -487,6 +498,10 @@ func (a *AllProject) getClassTypeInfoList(strName string, fileName string, lastL
 
 			// 所有父类型也处理下，再次递归获取
 			for _, strParent := range classInfo.ClassState.ParentNameList {
+				if _, ok := strMap[strParent]; ok {
+					continue
+				}
+
 				if strName == strParent {
 					continue
 				}
@@ -620,7 +635,7 @@ func (a *AllProject) getFuncReturnOneType(oldSymbol *common.Symbol, varIndex uin
 	comParam *CommonFuncParam, findExpList *[]common.FindExpFile) (flag bool, symbol *common.Symbol) {
 	// 判断注解类型是否存在
 	// 首先获取变量是否直接注解为函数的返回
-	flag, fragment, typeList := a.getFuncReturnAnnotateTypeList(oldSymbol)
+	flag, fragment, typeList, _ := a.getFuncReturnAnnotateTypeList(oldSymbol)
 	if !flag {
 		return
 	}
@@ -802,7 +817,7 @@ func (a *AllProject) getFuncTypeInfoList(strName string, fileName string, lastLi
 // flag 表示是否获取的为一个函数返回
 // astTypeList 为所有的函数返回字段列表，函数可能有多个返回参数
 func (a *AllProject) getFuncReturnAnnotateTypeList(symbol *common.Symbol) (flag bool,
-	fragment *common.FragementInfo, astTypeList []annotateast.Type) {
+	fragment *common.FragementInfo, astTypeList []annotateast.Type, commentList []string) {
 	if symbol == nil || symbol.VarInfo == nil {
 		return
 	}
@@ -825,7 +840,7 @@ func (a *AllProject) getFuncReturnAnnotateTypeList(symbol *common.Symbol) (flag 
 	// 3) 判断是否有函数返回信息
 	if fragmentInfo.ReturnInfo != nil {
 		flag = true
-		return flag, fragmentInfo, fragmentInfo.ReturnInfo.ReturnTypeList
+		return flag, fragmentInfo, fragmentInfo.ReturnInfo.ReturnTypeList, fragmentInfo.ReturnInfo.CommentList
 	}
 
 	return
@@ -1273,7 +1288,7 @@ func (a *AllProject) getVarInfoFuncHasKey(lastSymbol *common.Symbol, strKey stri
 		findExpList, false, lastSymbol.VarInfo.VarIndex)
 	for _, oneSymbol := range tmpList {
 		// 如果找到了，判断是否有注解类型
-		if flag, findSymbol := a.getAnnotateFunStrKey(oneSymbol, strKey, comParam, findExpList); flag {
+		if ok, findSymbol := a.getAnnotateFunStrKey(oneSymbol, strKey, comParam, findExpList); ok {
 			findFlag = 0
 			// 通过注解找到了信息
 			if findSymbol != nil {
@@ -1617,4 +1632,131 @@ func (a *AllProject) getAnnotateStrTypeInfo(strName string, fileName string, las
 func (a *AllProject) judgeExistAnnoteTypeStr(strName string) bool {
 	_, ok := a.createTypeMap[strName]
 	return ok
+}
+
+// 判断是否alias多个候选词
+// ---@alias exitcode2 '"exit"' | '"signal"'
+func (a *AllProject) getAliasMultiCandidate(className string, fileName string, line int) (str string) {
+	creatType := a.getAnnotateStrTypeInfo(className, fileName, line)
+	if creatType == nil || creatType.AliasInfo == nil {
+		return
+	}
+
+	aliasState := creatType.AliasInfo.AliasState
+	if aliasState == nil {
+		return
+	}
+
+	multiType, ok := aliasState.AliasType.(*annotateast.MultiType)
+	if !ok {
+		return
+	}
+
+	var multiArr []string
+	for _, one := range multiType.TypeList {
+		constType, ok := one.(*annotateast.ConstType)
+		if !ok {
+			continue
+		}
+
+		oneStr := "    | "
+		if constType.QuotesFlag {
+			oneStr = oneStr + "\"" + constType.Name + "\""
+		} else {
+			oneStr = oneStr + constType.Name
+		}
+
+		if constType.Comment != "" {
+			oneStr = oneStr + " -- " + constType.Comment
+		}
+
+		multiArr = append(multiArr, oneStr)
+	}
+
+	if len(multiArr) == 0 {
+		return
+	}
+
+	str = "\n" + strings.Join(multiArr, "\n")
+	return
+}
+
+// 判断是否alias多个候选词
+// ---@alias exitcode2 '"exit"' | '"signal"'
+func (a *AllProject) getAliasMultiCandidateMap(className string, fileName string, line int, strMap map[string]string) {
+	creatType := a.getAnnotateStrTypeInfo(className, fileName, line)
+	if creatType == nil || creatType.AliasInfo == nil {
+		return
+	}
+
+	aliasState := creatType.AliasInfo.AliasState
+	if aliasState == nil {
+		return
+	}
+
+	multiType, ok := aliasState.AliasType.(*annotateast.MultiType)
+	if !ok {
+		return
+	}
+	for _, one := range multiType.TypeList {
+		constType, ok := one.(*annotateast.ConstType)
+		if !ok {
+			continue
+		}
+
+		oneStr := ""
+		if constType.QuotesFlag {
+			oneStr = oneStr + "\"" + constType.Name + "\""
+		} else {
+			oneStr = oneStr + constType.Name
+		}
+
+		strMap[oneStr] = constType.Comment
+	}
+}
+
+func (a *AllProject) getSymbolAliasMultiCandidate(annotateType annotateast.Type, fileName string, line int) (str string) {
+	if annotateType == nil {
+		return
+	}
+
+	multiType, ok := annotateType.(*annotateast.MultiType)
+	if !ok {
+		return
+	}
+
+	for _, oneType := range multiType.TypeList {
+		// 判断是否在几个候选词中
+		if constType, ok := oneType.(*annotateast.ConstType); ok {
+			oneStr := ""
+			if constType.QuotesFlag {
+				oneStr = "\"" + constType.Name + "\""
+			} else {
+				oneStr = constType.Name
+			}
+
+			if str != "" {
+				str = str + " | " + oneStr
+			} else {
+				str = oneStr
+			}
+			continue
+		}
+
+		simpleType, ok := oneType.(*annotateast.NormalType)
+		if !ok {
+			continue
+		}
+
+		if isDefaultType(simpleType.StrName) {
+			continue
+		}
+
+		str = str + a.getAliasMultiCandidate(simpleType.StrName, fileName, line)
+		if str != "" {
+			return str
+		}
+	}
+
+	return str
 }

@@ -140,6 +140,24 @@
             }
         },
         {
+            "begin": "(^  ->[0-9]*\\.)(\\s)\\b([a-zA-Z_][a-zA-Z0-9_\\.\\s,\\<\\|\\>]*)",
+            "beginCaptures": {
+                "0": {
+                    "name": "support.type.lua"
+                },
+                "1": {
+                    "name": "constant.numeric.integer.lua"
+                }
+            },
+            "end": "(?=\\n)",
+            "patterns": [
+                {
+                    "match": "-- (.)*",
+                    "name": "comment.block.lua"
+                }
+            ]
+        },
+        {
             "match": "\\b(break|do|else|for|if|elseif|goto|return|then|repeat|while|until|end|function|local|in|and|or|not)\\b",
             "name": "keyword.control.lua"
         },
@@ -172,6 +190,28 @@
             },
             "end": "(?=\\n)",
             "patterns": [
+                {
+                    "match": "-- (.)*",
+                    "name": "comment.block.lua"
+                },
+                {
+                    "include": "#luadoc.type"
+                }
+            ]
+        },
+        {
+            "begin": "\\b\\(\\)(\\s*:\\s*)\\b([a-zA-Z_][a-zA-Z0-9_\\.]*)\\b(?!\\s*\\()",
+            "beginCaptures": {
+                "2": {
+                    "name": "support.type.lua"
+                }
+            },
+            "end": "(?=\\n)",
+            "patterns": [
+                {
+                    "match": "-- (.)*",
+                    "name": "comment.block.lua"
+                },
                 {
                     "include": "#luadoc.type"
                 }

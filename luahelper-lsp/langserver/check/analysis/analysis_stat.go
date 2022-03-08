@@ -211,10 +211,10 @@ func (a *Analysis) cgIfStat(node *ast.IfStat) {
 
 	// 检查重复条件
 	if a.isFirstTerm() && !a.realTimeFlag && !common.GConfig.IsGlobalIgnoreErrType(common.CheckErrorDuplicateIf) {
-		for i, _ := range node.Exps {
+		for i := range node.Exps {
 			for j := i + 1; j < len(node.Exps); j++ {
 				if common.CompExp(node.Exps[i], node.Exps[j]) {
-					errStr := fmt.Sprintf("same if condition")
+					errStr := "same if condition"
 
 					var relateVec []common.RelateCheckInfo
 					relateVec = append(relateVec, common.RelateCheckInfo{
@@ -257,7 +257,7 @@ func (a *Analysis) cgIfStat(node *ast.IfStat) {
 
 			// if not a then 需要判断a是否为局部变量
 			for _, strName := range simpleNotValueArr {
-				flag, locVarInfo := scope.FindLocVar(strName, node.Loc)
+				locVar, flag := scope.FindLocVar(strName, node.Loc)
 				if !flag {
 					continue
 				}
@@ -284,7 +284,7 @@ func (a *Analysis) cgIfStat(node *ast.IfStat) {
 				}
 
 				notVal := common.NotValStruct{
-					Var:     locVarInfo,
+					Var:     locVar,
 					SetFlag: false,
 				}
 
@@ -627,15 +627,14 @@ func (a *Analysis) checkLeftAssign(valExp ast.Exp) (needDefine bool, flagG bool,
 		strName = nameExp.Name
 		loc = nameExp.Loc
 		// 先在局部变量中查找
-		if flag, varTemp := scope.FindLocVar(strName, loc); flag == ok {
+		if findVar, ok := scope.FindLocVar(strName, loc); ok {
 			needDefine = false
-			varInfo = varTemp
+			varInfo = findVar
 			return
 		}
 
 		// 全局变量中查找
-		findFlag, findVar := fileResult.FindGlobalVar(strName, fi.FuncLv, fi.ScopeLv, loc, "", false)
-		if findFlag {
+		if findVar, ok := fileResult.FindGlobalLimitVar(strName, fi.FuncLv, fi.ScopeLv, loc, "", false); ok {
 			needDefine = false
 			varInfo = findVar
 		}
@@ -676,9 +675,7 @@ func (a *Analysis) checkLeftAssign(valExp ast.Exp) (needDefine bool, flagG bool,
 	if tabName == "!_G" {
 		strName = strKeyName
 		flagG = true
-		findFlag, findVar := fileResult.FindGlobalVar(strKeyName, fi.FuncLv, fi.ScopeLv, loc, "", false)
-		// 找到了，b的定义
-		if findFlag {
+		if findVar, ok := fileResult.FindGlobalLimitVar(strKeyName, fi.FuncLv, fi.ScopeLv, loc, "", false); ok {
 			needDefine = false
 			varInfo = findVar
 		}
@@ -708,9 +705,7 @@ func (a *Analysis) checkLeftAssign(valExp ast.Exp) (needDefine bool, flagG bool,
 	if splitArray[0] == "_G" {
 		strName = splitArray[1]
 		flagG = true
-		findFlag, findVar := fileResult.FindGlobalVar(strName, fi.FuncLv, fi.ScopeLv, loc, "", false)
-		// 找到了，b的定义
-		if findFlag {
+		if findVar, ok := fileResult.FindGlobalLimitVar(strName, fi.FuncLv, fi.ScopeLv, loc, "", false); ok {
 			varInfo = findVar
 		} else {
 			if findVar, ok := fileResult.NodefineMaps[strName]; ok {
@@ -733,12 +728,12 @@ func (a *Analysis) checkLeftAssign(valExp ast.Exp) (needDefine bool, flagG bool,
 		strVec = append(strVec, strKeyName)
 
 		strName = splitArray[0]
-		if flag, varTemp := scope.FindLocVar(strName, loc); flag == ok {
+		if varTemp, ok := scope.FindLocVar(strName, loc); ok {
 			varInfo = varTemp
 			return
 		}
 
-		if flag, findVar := fileResult.FindGlobalVar(strName, fi.FuncLv, fi.ScopeLv, loc, "", false); flag {
+		if findVar, ok := fileResult.FindGlobalLimitVar(strName, fi.FuncLv, fi.ScopeLv, loc, "", false); ok {
 			varInfo = findVar
 			return
 		}
@@ -772,58 +767,6 @@ func (a *Analysis) handleIfNotValAssign(valExp ast.Exp) {
 	if notValStruct, ok := findNotScope.NotVarMap[strName]; ok {
 		notValStruct.SetFlag = true
 		findNotScope.SetNotVarMapStruct(strName, notValStruct)
-	}
-
-	return
-}
-
-//  处理table成员变量的构造
-func (a *Analysis) handleTableMemConstruct(strMemName string, strMemValue string, oneFunc *common.FuncInfo,
-	newRefer *common.ReferInfo, loc lexer.Location, strProPre string, nExps int, i int, node *ast.AssignStat) {
-
-	scope := a.curScope
-	fi := a.curFunc
-
-	fileResult := a.curResult
-	// 1) 先在局部变量中查找
-	findOk, locVarInfo := scope.FindLocVar(strMemName, loc)
-	if findOk && !locVarInfo.IsExistMember(strMemValue) {
-		newVar := common.CreateOneVarInfo(fileResult.Name, loc, newRefer, oneFunc, 1)
-		if oneFunc != nil && oneFunc.IsColon {
-			//目前只有冒号函数才进行反向关联函数的变量
-			oneFunc.RelateVar = common.CreateFuncRelateVar(strMemName, locVarInfo)
-		}
-
-		if nExps >= (i + 1) {
-			expNode := node.ExpList[i]
-			newVar.VarType = common.GetExpType(expNode)
-			newVar.ReferExp = expNode
-		}
-
-		locVarInfo.InsertSubMember(strMemValue, newVar)
-		return
-	}
-
-	// 2)判断是否为当前文件的全局变量赋值, 例如a.b = 3, 其中strMemName赋值为a, strMemValue赋值为b
-	// 一定为全局变量，在全局变量中查找
-	findMemFlag, memVar := fileResult.FindGlobalVar(strMemName, fi.FuncLv, fi.ScopeLv, loc,
-		strProPre, false)
-
-	// 定义在本文件中的global 变量，尝试构建所有的成员信息
-	if findMemFlag && !memVar.IsExistMember(strMemValue) {
-		newVar := common.CreateOneVarInfo(fileResult.Name, loc, newRefer, oneFunc, 1)
-		if oneFunc != nil && oneFunc.IsColon {
-			//目前只有冒号函数才进行反向关联函数的变量
-			oneFunc.RelateVar = common.CreateFuncRelateVar(strMemName, memVar)
-		}
-
-		if nExps >= (i + 1) {
-			expNode := node.ExpList[i]
-			newVar.VarType = common.GetExpType(expNode)
-			newVar.ReferExp = expNode
-		}
-
-		memVar.InsertSubMember(strMemValue, newVar)
 	}
 }
 
@@ -1173,6 +1116,8 @@ func (a *Analysis) cgAssignStat(node *ast.AssignStat) {
 				fileResult.InsertError(common.CheckErrorAssignParamNum, errStr, node.Loc)
 			}
 		} else {
+
+			//检查自我赋值
 			if !common.GConfig.IsGlobalIgnoreErrType(common.CheckErrorSelfAssign) {
 				isSame := true
 				for i := 0; i < nExps; i++ {
@@ -1182,7 +1127,7 @@ func (a *Analysis) cgAssignStat(node *ast.AssignStat) {
 				}
 
 				if isSame {
-					errStr := fmt.Sprintf("self assign error")
+					errStr := "self assign error"
 					fileResult.InsertError(common.CheckErrorSelfAssign, errStr, node.Loc)
 				}
 			}
@@ -1220,6 +1165,9 @@ func (a *Analysis) cgAssignStat(node *ast.AssignStat) {
 		if leftExp, ok := node.VarList[0].(*ast.TableAccessExp); ok {
 			a.checkTableAccess(leftExp)
 		}
+
+		//检查 是否给常量赋值
+		a.checkConstAssgin(node.VarList[0])
 	}
 }
 

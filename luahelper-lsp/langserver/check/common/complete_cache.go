@@ -41,6 +41,7 @@ type OneCompleteData struct {
 	Documentation  string
 	LuaFile        string                          // 补全出现的文件名
 	VarInfo        *VarInfo                        // 补全的变量名称
+	ExpandVarInfo  *VarInfo                        // 扩展的变量名称
 	CacheKind      CacheKind                       // 缓存的类型
 	FieldState     *annotateast.AnnotateFieldState // 提示为注解的class信息
 	FieldColonFlag annotateast.FieldColonType      // 当为FieldState时候，是否为：函数
@@ -49,26 +50,30 @@ type OneCompleteData struct {
 
 // CompleteCache 缓存所有的补全信息
 type CompleteCache struct {
-	index         int                 // 当前的index
-	maxNum        int                 // 上次提示的最大数量
-	excludeNum    int                 // 上次提示时，排除的最大数量
-	dataList      []OneCompleteData   // 所有的缓存信息，用列表存储就ok
-	existMap      map[string]int      // 为已经存在的map，防止重复
-	excludeMap    map[string]struct{} // 冒号语法需要排除的map
-	colonFlag     bool                // 代码补全最后是否为冒号语法
-	beforeHashtag bool                //  补全的词前面是否包含#
+	index            int                 // 当前的index
+	maxNum           int                 // 上次提示的最大数量
+	excludeNum       int                 // 上次提示时，排除的最大数量
+	dataList         []OneCompleteData   // 所有的缓存信息，用列表存储就ok
+	existMap         map[string]int      // 为已经存在的map，防止重复
+	excludeMap       map[string]struct{} // 冒号语法需要排除的map
+	colonFlag        bool                // 代码补全最后是否为冒号语法
+	beforeHashtag    bool                //  补全的词前面是否包含#
+	clearParamQuotes bool                // 补全时候，是否要清除候选词的引号
+	completeVar      *CompleteVarStruct  // 缓存的输入代码补全的结构
 }
 
 // CreateCompleteCache 创建一个代码补全缓存
 func CreateCompleteCache() *CompleteCache {
 	cache := &CompleteCache{
-		index:      0,
-		maxNum:     1,
-		excludeNum: 1,
-		dataList:   []OneCompleteData{},
-		existMap:   map[string]int{},
-		excludeMap: map[string]struct{}{},
-		colonFlag:  false,
+		index:            0,
+		maxNum:           1,
+		excludeNum:       1,
+		dataList:         []OneCompleteData{},
+		existMap:         map[string]int{},
+		excludeMap:       map[string]struct{}{},
+		colonFlag:        false,
+		clearParamQuotes: false,
+		completeVar:      nil,
 	}
 
 	return cache
@@ -82,6 +87,28 @@ func (cache *CompleteCache) ResertData() {
 	cache.excludeMap = make(map[string]struct{}, cache.excludeNum)
 	cache.colonFlag = false
 	cache.beforeHashtag = false
+	cache.clearParamQuotes = false
+	cache.completeVar = nil
+}
+
+// SetCompleteVar set completeVar
+func (cache *CompleteCache) SetCompleteVar(completeVar *CompleteVarStruct) {
+	cache.completeVar = completeVar
+}
+
+// GetCompleteVar get completeVar
+func (cache *CompleteCache) GetCompleteVar() *CompleteVarStruct {
+	return cache.completeVar
+}
+
+// SetClearParamQuotes set clearParamQuotes
+func (cache *CompleteCache) SetClearParamQuotes(flag bool) {
+	cache.clearParamQuotes = flag
+}
+
+// GetClearParamQuotes set clearParamQuotes
+func (cache *CompleteCache) GetClearParamQuotes() bool {
+	return cache.clearParamQuotes
 }
 
 // SetBeforeHashtag set before hash tag
@@ -250,6 +277,20 @@ func (cache *CompleteCache) InsertCompleteNormal(label, detail, documentation st
 		Documentation: documentation,
 		Kind:          kind,
 		CacheKind:     CKindNormal,
+	}
+	cache.dataList = append(cache.dataList, oneComplete)
+	cache.existMap[label] = len(cache.dataList) - 1
+}
+
+// InsertCompleteNormal 插入普通的
+func (cache *CompleteCache) InsertCompleteExpand(label, detail, documentation string, kind ItemKind, expandVar *VarInfo) {
+	oneComplete := OneCompleteData{
+		Label:         label,
+		Detail:        detail,
+		Documentation: documentation,
+		Kind:          kind,
+		CacheKind:     CKindNormal,
+		ExpandVarInfo: expandVar,
 	}
 	cache.dataList = append(cache.dataList, oneComplete)
 	cache.existMap[label] = len(cache.dataList) - 1

@@ -87,6 +87,7 @@ type WarnParams struct {
 	CheckSelfAssign                bool `json:"CheckSelfAssign,omitempty"`
 	CheckFloatEq                   bool `json:"CheckFloatEq,omitempty"`
 	CheckClassField                bool `json:"CheckClassField,omitempty"`
+	CheckConstAssign               bool `json:"CheckConstAssign,omitempty"`
 }
 
 // LuahelperParams 整体的设置
