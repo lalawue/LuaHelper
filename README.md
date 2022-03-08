@@ -6,7 +6,7 @@ For MoonCake and Lua share the same token list in LSP backend, so LSP has some l
 
 you can add '.vscode/luahelper.json' in project dir to config ';' seperated LUA_PATH and LUA_CPATH, more refers to my [luahelper.json](luahelper.json) for example.
 
---
+---
 
 # LuaHelper Guide
 ![logo](/docs/images/logo.png)
