@@ -1039,6 +1039,10 @@ func (l *Lexer) SetEnd() {
 	l.chunk = ""
 }
 
+func (l *Lexer) IsNextBlank() bool {
+	return isWhiteSpace(l.chunk[0]) || isNewLine(l.chunk[0])
+}
+
 func isWhiteSpace(c byte) bool {
 	if c == ' ' || c == '\t' || c == '\v' || c == '\f' {
 		return true

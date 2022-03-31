@@ -506,7 +506,7 @@ func (p *moocParser) parseSwitchStat() *ast.SwitchStat {
 				Name: "__sw__",
 				Loc:  l.GetNowTokenLoc(),
 			},
-			Exp2: p.parseExp(),
+			Exp2: p.parseExp0(),
 			Loc:  l.GetNowTokenLoc(),
 		}
 		orList := []ast.Exp{}

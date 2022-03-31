@@ -109,8 +109,13 @@ func (p *moocParser) finishPrefixExp(exp ast.Exp, beginLoc *lexer.Location) ast.
 					Loc:       tableLoc,
 				}
 			}
-		case lexer.TkSepColon, // prefixexp ‘:’ Name args
-			lexer.TkSepLparen: // prefixexp args
+		case lexer.TkSepColon: // prefixexp ‘:’ Name args
+			if l.IsNextBlank() {
+				return exp
+			} else {
+				exp = p.finishFuncCallExp(exp)
+			}
+		case lexer.TkSepLparen: // prefixexp args
 			exp = p.finishFuncCallExp(exp)
 		default:
 			return exp
