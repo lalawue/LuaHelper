@@ -39,9 +39,9 @@ func (s *scopeStack) push(scope uint8, name string) {
 }
 
 func (s *scopeStack) pop() *parserScope {
-	ret := s.scopes[s.index]
 	if s.index > 0 {
 		s.index -= 1
+		ret := s.scopes[s.index]
 		if ret.scope == pscope_lo {
 			s.scopes[0].count -= 1
 		}
@@ -60,7 +60,7 @@ func (p *scopeStack) current() *parserScope {
 
 // check scope before stop scope
 func (p *scopeStack) checkStackWith(scope uint8, stop uint8) *parserScope {
-	for index := int(p.index); index >= 0; index-- {
+	for index := int(p.index - 1); index >= 0; index-- {
 		iscope := p.scopes[index].scope
 		if iscope == scope {
 			return &p.scopes[index]
