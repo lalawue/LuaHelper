@@ -13,7 +13,7 @@ import (
 )
 
 // 插件定义的版本号
-var clientVerStr string = "0.2.11"
+var clientVerStr string = "0.2.15"
 
 type serverState int
 
@@ -52,6 +52,9 @@ type LspServer struct {
 
 	// 是否处理过ChangeConfiguration 标记
 	changeConfFlag bool
+
+	// 是否允许向中心服务器上报自己的使用
+	enableReport bool
 
 	stateMu sync.Mutex
 	state   serverState

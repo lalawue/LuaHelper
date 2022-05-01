@@ -51,10 +51,7 @@ type Analysis struct {
 	// 如果为第四阶段，查找变量的引用，指向四阶段文件的指针
 	ReferenceResult *results.ReferenceFileResult
 
-	// 如果为第五阶段，构造变量的所有层级调用，例如ss.data,方便做代码提示
-	CompleteResult *results.CompleteFileResult
-
-	// 如果为第六阶段，查找当前文件所有的全局变量或函数位置信息
+	// 如果为第五阶段，查找当前文件所有的全局变量或函数位置信息
 	ColorResult *results.ColorFileResult
 
 	// 第二阶段分析工程，需要找全局第一轮已经分析完的文件，指针指向；
@@ -78,7 +75,6 @@ func CreateAnalysis(checkTerm results.CheckTerm, entryFile string) *Analysis {
 		Projects:            nil,
 		AnalysisThird:       nil,
 		ReferenceResult:     nil,
-		CompleteResult:      nil,
 		realTimeFlag:        false,
 		curFunc:             nil,
 		extMark:             "",
@@ -105,14 +101,9 @@ func (a *Analysis) isFourTerm() bool {
 	return a.checkTerm == results.CheckTermFour
 }
 
-// 判断是否为第五轮，单个文件的成员变量分析，获取所有的.调用
+// 判断是否为第五轮，返回所有全局的颜色
 func (a *Analysis) isFiveTerm() bool {
 	return a.checkTerm == results.CheckTermFive
-}
-
-// 判断是否为第六轮，返回所有全局的颜色
-func (a *Analysis) isSixTerm() bool {
-	return a.checkTerm == results.CheckTermSix
 }
 
 // 判断是否需要检查告警项，只在第二轮或第三轮才检查
@@ -245,7 +236,7 @@ func (a *Analysis) isExistSecondProjectAnalysis(strFile string) bool {
 	return fileResult != nil
 }
 
-// 第一轮遍历AST的处理
+// HandleFirstTraverseAST 第一轮遍历AST的处理
 func (a *Analysis) HandleFirstTraverseAST(fileResult *results.FileResult) {
 	a.curResult = fileResult
 	a.curFunc = fileResult.MainFunc
@@ -399,8 +390,6 @@ func (a *Analysis) HandleTermTraverseAST(checkTerm results.CheckTerm, firstFile 
 	} else if checkTerm == results.CheckTermFour {
 		a.ReferenceResult.SetFileResult(fileResult)
 	} else if checkTerm == results.CheckTermFive {
-		//analysis.analysisFive.fileResult = fileResult
-	} else if checkTerm == results.CheckTermSix {
 		a.ColorResult.FileResult = fileResult
 	} else {
 		log.Error("checkTerm error")
@@ -417,11 +406,12 @@ func (a *Analysis) HandleTermTraverseAST(checkTerm results.CheckTerm, firstFile 
 	a.exitScope()
 }
 
+// SetRealTimeFlag set real time flag
 func (a *Analysis) SetRealTimeFlag(flag bool) {
 	a.realTimeFlag = flag
 }
 
-// 根据注解判断table成员合法性 在 t={f1=1,f1=2,} 时使用
+// CheckTableDecl 根据注解判断table成员合法性 在 t={f1=1,f1=2,} 时使用
 func (a *Analysis) CheckTableDecl(strTableName string, strFieldNamelist []string, nodeLoc *lexer.Location, node *ast.TableConstructorExp) {
 	if !a.isNeedCheck() || a.realTimeFlag {
 		return
@@ -458,6 +448,7 @@ func (a *Analysis) CheckTableDecl(strTableName string, strFieldNamelist []string
 	}
 }
 
+// FindVarDefineForCheck 查找检查
 func (a *Analysis) FindVarDefineForCheck(varName string, loc lexer.Location) (find bool, varInfo *common.VarInfo) {
 	find = false
 	//先尝试找local变量
@@ -566,12 +557,8 @@ func (a *Analysis) checkConstAssgin(node ast.Exp) {
 	case *ast.NameExp:
 		name = exp.Name
 		loc = exp.Loc
-		//case *ast.ParensExp:
-		//loc = exp
 	case *ast.TableAccessExp:
-		strTable := common.GetExpName(exp.PrefixExp)
-		name = common.GetSimpleValue(strTable)
-		loc = common.GetTablePrefixLoc(exp)
+		name, loc = common.GetTableNameInfo(exp)
 	}
 
 	if len(name) <= 0 {
@@ -586,8 +573,12 @@ func (a *Analysis) checkConstAssgin(node ast.Exp) {
 	if !ok {
 		return
 	}
+	if varInfo.Loc == loc {
+		//定义处不检查
+		return
+	}
 
-	if a.Projects.IsAnnotateTypeConst(varInfo) {
+	if a.Projects.IsAnnotateTypeConst(name, varInfo) {
 		//标记了常量，却赋值
 		errStr := fmt.Sprintf("(%s) is const, can not assgin", name)
 		a.curResult.InsertError(common.CheckErrorConstAssign, errStr, loc)

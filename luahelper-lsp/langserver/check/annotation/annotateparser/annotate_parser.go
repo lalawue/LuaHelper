@@ -47,6 +47,8 @@ func ParseCommentFragment(commentInfo *lexer.CommentInfo) (fragment annotateast.
 			annotateState, parseErr = ParserLine(l)
 		} else if l.CheckMarkValid() {
 			annotateState, parseErr = parseMarkState(l)
+		} else {
+			continue
 		}
 
 		if parseErr.ErrType != annotatelexer.AErrorOk {

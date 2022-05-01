@@ -272,6 +272,28 @@ func (a *AllProject) GetFuncDefaultParamInfo(fileName string, lastLine int, para
 	return paramDefaultNum
 }
 
+// 获取参数类型
+func (a *AllProject) GetFuncParamType(fileName string, lastLine int) (retMap map[string]annotateast.Type) {
+	retMap = map[string]annotateast.Type{}
+	annotateParamInfo := a.GetFuncParamInfo(fileName, lastLine)
+	if annotateParamInfo == nil {
+		return retMap
+	}
+	for _, oneParam := range annotateParamInfo.ParamList {
+		switch subAst := oneParam.ParamType.(type) {
+		case *annotateast.MultiType:
+			if len(subAst.TypeList) == 0 {
+				return
+			}
+			retMap[oneParam.Name] = subAst.TypeList[0]
+		case *annotateast.NormalType:
+			retMap[oneParam.Name] = oneParam.ParamType
+		}
+
+	}
+	return retMap
+}
+
 //
 func (a *AllProject) GetAnnotateClassAllFieldOfStrict(astType annotateast.Type, fileName string,
 	lastLine int) (isStrict bool, retMap map[string]bool, className string) {
@@ -424,7 +446,7 @@ func (a *AllProject) IsMemberOfAnnotateClassByLoc(strFile string, strFieldNameli
 }
 
 // 获取注解 ---type
-func (a *AllProject) IsAnnotateTypeConst(varInfo *common.VarInfo) (isConst bool) {
+func (a *AllProject) IsAnnotateTypeConst(name string, varInfo *common.VarInfo) (isConst bool) {
 	isConst = false
 
 	// 1) 获取文件对应的annotateFile
@@ -436,14 +458,68 @@ func (a *AllProject) IsAnnotateTypeConst(varInfo *common.VarInfo) (isConst bool)
 
 	fragmentInfo := annotateFile.GetLineFragementInfo(varInfo.Loc.StartLine - 1)
 
+	//作为变量的const
 	if fragmentInfo != nil &&
 		fragmentInfo.TypeInfo != nil &&
 		len(fragmentInfo.TypeInfo.ConstList) > 0 {
 		return fragmentInfo.TypeInfo.ConstList[0]
 	}
 
+	//作为函数参数的const
+	if fragmentInfo != nil &&
+		fragmentInfo.ParamInfo != nil &&
+		len(fragmentInfo.ParamInfo.ParamList) > 0 {
+		// 这里判断是否为函数参数的注解
+		// 函数参数的注解，会额外的用下面的注解类型
+		// ---@param one class
+
+		for i := 0; i < len(fragmentInfo.ParamInfo.ParamList); i++ {
+			paramLine := fragmentInfo.ParamInfo.ParamList[i]
+
+			//找到对应的那行---@param one class 再获取class
+			if paramLine.Name == name {
+				return paramLine.IsConst
+			}
+		}
+	}
+
 	//没找到返回空的
 	return isConst
+}
+
+// 获取注解中的类型
+func (a *AllProject) GetAnnotateTypeString(varInfo *common.VarInfo) string {
+
+	// 1) 获取文件对应的annotateFile
+	annotateFile := a.getAnnotateFile(varInfo.FileName)
+	if annotateFile == nil {
+		log.Error("GetAnnotateType annotateFile is nil, file=%s", varInfo.FileName)
+		return ""
+	}
+
+	fragmentInfo := annotateFile.GetLineFragementInfo(varInfo.Loc.StartLine - 1)
+
+	//作为变量的const
+	if fragmentInfo != nil &&
+		fragmentInfo.TypeInfo != nil &&
+		len(fragmentInfo.TypeInfo.TypeList) > 0 {
+
+		switch subType := fragmentInfo.TypeInfo.TypeList[0].(type) {
+		case *annotateast.MultiType:
+			if len(subType.TypeList) == 0 {
+				return ""
+			}
+			switch subSubType := subType.TypeList[0].(type) {
+			case *annotateast.NormalType:
+				return subSubType.StrName
+			}
+		case *annotateast.NormalType:
+			return subType.StrName
+
+		}
+	}
+
+	return ""
 }
 
 // GetFirstFileStuct 获取第一阶段文件处理的结果

@@ -107,7 +107,7 @@ func (l *LspServer) TextDocumentComplete(ctx context.Context, vs lsp.CompletionP
 		compVar.StrVec = append(compVar.StrVec, preCompStr)
 		compVar.OnelyParamQuotesFlag = true
 	} else {
-		// 5.2) 按照.进行分割字符串
+		// 5.4) 按照.进行分割字符串
 		compVar, flag = getComplelteStruct(preCompStr, (int)(comResult.pos.Line), (int)(comResult.pos.Character), comResult.strFile)
 		if !flag {
 			return

@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"luahelper-lsp/langserver/check/annotation/annotateast"
 	"luahelper-lsp/langserver/check/common"
 	"luahelper-lsp/langserver/check/compiler/ast"
 	"luahelper-lsp/langserver/check/compiler/lexer"
@@ -73,7 +74,6 @@ func (a *Analysis) cgFuncCallStat(node *ast.FuncCallStat) {
 }
 
 // 检查调用函数匹配的参数
-// 第二轮或第三轮检查参数个数是否匹配
 func (a *Analysis) cgFuncCallParamCheck(node *ast.FuncCallStat) {
 	// 第二轮或第三轮函数参数check
 	if !a.isNeedCheck() {
@@ -128,6 +128,76 @@ func (a *Analysis) cgFuncCallParamCheck(node *ast.FuncCallStat) {
 			return
 		}
 	}
+
+	//到此参数个数正常，继续检查参数类型匹配
+	paramTypeMap := a.Projects.GetFuncParamType(referFunc.FileName, referFunc.Loc.StartLine-1)
+	for i, argExp := range node.Args {
+		//函数定义处注解的参数类型
+		paramType := annotateast.GetAstTypeName(paramTypeMap[referFunc.ParamList[i]])
+		if paramType == "any" {
+			continue
+		}
+
+		//函数调用处的参数类型
+		argType := common.GetAnnTypeFromExp(argExp)
+		if argType == "any" {
+			continue
+		} else if argType == "LuaTypeRefer" {
+			//若是引用，则继续查找定义
+
+			name := ""
+			loc := lexer.Location{}
+			switch exp := argExp.(type) {
+			case *ast.NameExp:
+				name = exp.Name
+				loc = exp.Loc
+				// //case *ast.ParensExp:
+				// //case *ast.TableAccessExp:
+				// 	//name, loc = common.GetTableNameInfo(exp)
+				// // case *ast.FuncCallExp:
+				// // 	name = exp.NameExp.Str
+			}
+
+			if len(name) <= 0 {
+				continue
+			}
+
+			ok, varInfo := a.FindVarDefineForCheck(name, loc)
+			if !ok {
+				continue
+			}
+
+			//定义处若有注解 取注解的类型
+			argAnnType := a.Projects.GetAnnotateTypeString(varInfo)
+
+			//定义处表达式推导的类型
+			argType = common.GetAnnTypeFromLuaType(varInfo.VarType)
+
+			//若有注解类型则先比较
+			if len(argAnnType) > 0 && paramType == argAnnType {
+				continue
+			}
+
+			if paramType == argType {
+				//例如：参数类型要求table
+				//---@type classA
+				//local tableA = {}
+				//argType是table, argAnnType是classA, 在这里通过
+				continue
+			}
+
+			if argType == "any" || argType == "LuaTypeRefer" {
+				//若仍是LuaTypeRefer 不再递归推导 否则影响插件效率
+				continue
+			}
+		}
+
+		//类型不一致，报警
+		errorStr := fmt.Sprintf("Expected parameter of type '%s', '%s' provided", paramType, argType)
+		fileResult.InsertError(common.CheckErrorCallParam, errorStr, node.Loc)
+
+	}
+
 }
 
 func (a *Analysis) cgBreakStat(node *ast.BreakStat) {
@@ -514,14 +584,8 @@ func (a *Analysis) cgLocalVarDeclStat(node *ast.LocalVarDeclStat) {
 		if oneAttr == ast.RDKTOCLOSE {
 			varInfo.IsClose = true
 		}
-		if strings.HasPrefix(a.extMark, "class_") {
-			varInfo.IsUse = true
-			if a.extMark == "class_def" {
-				varInfo.IsParam = true
-			}
-		}
 
-		switch e := exp.(type) {
+		switch exp.(type) {
 		case *ast.FuncDefExp:
 			// 定义为local abcd1 = function ()
 			varInfo.ReferFunc = oneFunc
@@ -534,19 +598,6 @@ func (a *Analysis) cgLocalVarDeclStat(node *ast.LocalVarDeclStat) {
 			// 最后一个表达式是函数调用
 			if i == nExps-1 {
 				lastExpFuncFlag = true
-			}
-		case *ast.TableAccessExp:
-			if ee, ok := e.PrefixExp.(*ast.FuncCallExp); ok {
-				if oneRefer == nil {
-					oneRefer = a.GetImportReferByCallExp(ee)
-				}
-				varInfo.ReferInfo = oneRefer
-				if oneRefer != nil {
-					varInfo.IsUse = true
-				}
-				if i == nExps-1 {
-					lastExpFuncFlag = true
-				}
 			}
 		}
 
@@ -1031,7 +1082,7 @@ func (a *Analysis) cgAssignStat(node *ast.AssignStat) {
 
 		// 是否定义了变量
 		defineVarFlag := needDefineFlag
-		if !defineVarFlag && (a.isFourTerm() || a.isSixTerm()) {
+		if !defineVarFlag && (a.isFourTerm() || a.isFiveTerm()) {
 			if nameExp, ok := valExp.(*ast.NameExp); ok {
 				// 第四轮，变量赋值的引用查找
 				a.findNameStr(nameExp, nil)
@@ -1039,13 +1090,6 @@ func (a *Analysis) cgAssignStat(node *ast.AssignStat) {
 
 			if taExp, ok := valExp.(*ast.TableAccessExp); ok {
 				// 第四轮，table的关键key值的赋值，查找引用, 定义出需要去重
-				a.findTableDefine(taExp)
-			}
-		}
-
-		if !defineVarFlag && a.isFiveTerm() {
-			if taExp, ok := valExp.(*ast.TableAccessExp); ok {
-				// 第五轮，table的关键key值的赋值，查找table的调用
 				a.findTableDefine(taExp)
 			}
 		}

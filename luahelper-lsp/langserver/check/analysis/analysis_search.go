@@ -139,10 +139,8 @@ func (a *Analysis) getFuncCallReferFunc(node *ast.FuncCallStat) (referFunc *comm
 			return nil, strName
 		}
 
-		checkTerm := a.getChangeCheckTerm()
-		referFile := a.GetReferFileResult(referInfo, checkTerm)
+		referFile := a.Projects.GetFirstReferFileResult(referInfo)
 		if referFile == nil {
-			// 没有加载引用的文件，可能是so文件
 			return nil, strName
 		}
 
@@ -150,6 +148,34 @@ func (a *Analysis) getFuncCallReferFunc(node *ast.FuncCallStat) (referFunc *comm
 		referLuaFile := referInfo.ReferStr
 		if common.GConfig.IsIgnoreFileDefineVar(referLuaFile, strKeyName) {
 			return nil, strName
+		}
+
+		if referInfo.ReferType == common.ReferTypeRequire {
+			find, returnExp := referFile.MainFunc.GetLastOneReturnExp()
+			if !find {
+				return nil, strName
+			}
+
+			subExp, ok := returnExp.(*ast.NameExp)
+			if !ok {
+				return nil, strName
+			}
+
+			varInfo, ok := referFile.MainFunc.MainScope.FindLocVar(subExp.Name, subExp.Loc)
+			if !ok {
+				_, varInfo = referFile.FindGlobalVarInfo(subExp.Name, false, "")
+			}
+
+			if varInfo == nil {
+				return nil, strName
+			}
+
+			subVar := common.GetVarSubGlobalVar(varInfo, strKeyName)
+			if subVar == nil {
+				return nil, strName
+			}
+
+			return subVar.ReferFunc, strKeyName
 		}
 
 		if ok, oneVar := referFile.FindGlobalVarInfo(strKeyName, false, ""); ok {
@@ -227,17 +253,17 @@ func (a *Analysis) ignoreCircleDefine(strName string, loc lexer.Location, findVa
 func (a *Analysis) findGlobalVar(strName string, loc lexer.Location, strProPre string, callGflag bool,
 	gFindGlag bool, nameExp ast.Exp, binParentExp *ast.BinopExp) {
 	fileResult := a.curResult
-
+	
 	if strings.HasSuffix(a.entryFile, ".mooc") {
 		if common.GConfig.MoocIsIgnoreNameVar(strName) {
 			return
 		}
-	}
+	}	
 
-	// 0) 如果是在第六轮， 判断传人的系统名字是变量还是函数
-	if a.isSixTerm() {
+	// 0) 如果是在五轮， 判断传人的系统名字是变量还是函数
+	if a.isFiveTerm() {
 		subExp, ok := nameExp.(*ast.NameExp)
-		if ok && common.IsSelf(a.entryFile, subExp.Name) {
+		if ok && subExp.Name == "self" {
 			return
 		}
 
@@ -262,6 +288,10 @@ func (a *Analysis) findGlobalVar(strName string, loc lexer.Location, strProPre s
 
 	fi := a.curFunc
 	firstFile := a.getFirstFileResult(fileResult.Name)
+	if firstFile == nil {
+		return
+	}
+
 	preShowStr := ""
 	if callGflag {
 		preShowStr = "_G."
@@ -438,11 +468,6 @@ func (a *Analysis) findNameStr(node *ast.NameExp, binParentExp *ast.BinopExp) {
 
 // 直接查找全局变量，判断是否有定义
 func (a *Analysis) checkfindGVar(strName string, loc lexer.Location, strProPre string, nameExp ast.Exp) {
-	if a.isFiveTerm() {
-		// 第五轮分析不用判断
-		return
-	}
-
 	// 查找_G的符号，也会扩大到非_G的
 	gFlag := !common.GConfig.GetGVarExtendFlag()
 	if strProPre != "" {
@@ -507,10 +532,12 @@ func (a *Analysis) findThreeLevelCall(node ast.Exp, nameExp ast.Exp) {
 
 		// 查找全局中是否有该变量
 		firstFile := a.getFirstFileResult(fileResult.Name)
-		if ok, findVar := firstFile.FindGlobalVarInfo(strTwo, true, strProPre); ok {
-			// 判断是否是自己所要的引用关系
-			a.ReferenceResult.MatchVarInfo(a, strTwo, firstFile.Name, findVar, fi, strPreExp, nameExp, false)
-			return
+		if firstFile != nil {
+			if ok, findVar := firstFile.FindGlobalVarInfo(strTwo, true, strProPre); ok {
+				// 判断是否是自己所要的引用关系
+				a.ReferenceResult.MatchVarInfo(a, strTwo, firstFile.Name, findVar, fi, strPreExp, nameExp, false)
+				return
+			}
 		}
 
 		// 所有工程的文件
@@ -590,149 +617,6 @@ func (a *Analysis) findThreeLevelCall(node ast.Exp, nameExp ast.Exp) {
 	}
 }
 
-// 第五轮查找是否展开过 :函数的调用
-func (a *Analysis) findFiveTableAccess(prefixExp ast.Exp, nameExp ast.Exp, nodeLoc lexer.Location) {
-	strTable := common.GetExpName(prefixExp)
-	strKey := common.GetExpName(nameExp)
-
-	// 判断是否为_G
-	if strTable == "!_G" {
-		return
-	}
-
-	if !common.JudgeSimpleStr(strKey) {
-		return
-	}
-
-	fileResult := a.curResult
-	scope := a.curScope
-
-	// 简单的table
-	if !strings.HasPrefix(strTable, "!") {
-		return
-	}
-
-	analysisFive := a.CompleteResult
-	if nodeLoc.IsInLocStruct(analysisFive.PosLine, analysisFive.PosCh) {
-		return
-	}
-
-	strName := strTable[1:]
-	nameArry := strings.Split(strName, ".")
-	strOne := nameArry[0]
-	if common.IsSelf(a.entryFile, strOne) {
-		strOne = a.ChangeSelfToReferVar(strOne, "")
-	}
-
-	if strOne == "_G" {
-		// 如果不是为全局变量，直接退出
-		if !analysisFive.FindVar.IsGlobal() {
-			return
-		}
-		if len(nameArry) < 2 {
-			return
-		}
-
-		strFind := nameArry[1]
-		// 判断匹配的是否相等
-		if !common.JudgeSimpleStr(strFind) || (strFind != analysisFive.StrName) {
-			return
-		}
-
-		nameArry = nameArry[2:]
-		// 匹配的长度不相等
-		if len(nameArry) != len(analysisFive.SufVec) {
-			return
-		}
-		for i := 0; i < len(nameArry); i++ {
-			if !common.JudgeSimpleStr(nameArry[i]) || nameArry[i] != analysisFive.SufVec[i] {
-				return
-			}
-		}
-
-		nameArry = append(nameArry, strKey)
-		fileStruct, _ := a.Projects.GetCacheFileStruct(analysisFive.FileName)
-		if fileStruct == nil {
-			log.Error("GetCacheFileStruct err, strFile=%s", fileResult.Name)
-			return
-		}
-
-		gFlag := !common.GConfig.GetGVarExtendFlag()
-		// 最底层的函数，调用了顺序导致的变量未定义
-		if ok, findVar := fileStruct.FileResult.FindGlobalVarInfo(strFind, gFlag, ""); ok {
-			if analysisFive.HandAccessFindInfo(strFind, findVar) {
-				// 匹配到了，记录字符串
-				strReturn := common.JoinSimpleStr(nameArry)
-				analysisFive.InsertAccessStr(strReturn)
-			}
-		}
-		return
-	}
-
-	// 判断匹配的是否相等
-	if !common.JudgeSimpleStr(strOne) || (strOne != analysisFive.StrName) {
-		return
-	}
-
-	nameArry = nameArry[1:]
-
-	// 匹配的长度不相等
-	if len(nameArry) != len(analysisFive.SufVec) {
-		return
-	}
-	for i := 0; i < len(nameArry); i++ {
-		if !common.JudgeSimpleStr(nameArry[i]) || nameArry[i] != analysisFive.SufVec[i] {
-			return
-		}
-	}
-
-	nameArry = append(nameArry, strKey)
-	loc := common.GetExpLoc(prefixExp)
-	if locVar, ok := scope.FindLocVar(strOne, loc); ok {
-		if analysisFive.HandAccessFindInfo(strOne, locVar) {
-			strReturn := common.JoinSimpleStr(nameArry)
-			analysisFive.InsertAccessStr(strReturn)
-		}
-		return
-	}
-
-	// 判断是否在未定义的列表中
-	firstFile, _ := a.Projects.GetCacheFileStruct(analysisFive.FileName)
-	if firstFile == nil {
-		log.Error("GetCacheFileStruct err, strFile=%s", fileResult.Name)
-		return
-	}
-
-	if findVar, ok := firstFile.FileResult.NodefineMaps[strOne]; ok {
-		if analysisFive.HandAccessFindInfo(strOne, findVar) {
-			strReturn := common.JoinSimpleStr(nameArry)
-			analysisFive.InsertAccessStr(strReturn)
-		}
-	}
-
-	if analysisFive.FindVar.IsGlobal() {
-		firstFile, _ := a.Projects.GetCacheFileStruct(analysisFive.FileName)
-		if firstFile == nil {
-			log.Error("GetCacheFileStruct err, strFile=%s", fileResult.Name)
-			return
-		}
-
-		// 最底层的函数，调用了顺序导致的变量未定义
-		if ok, findVar := firstFile.FileResult.FindGlobalVarInfo(strOne, false, ""); ok {
-			if analysisFive.HandAccessFindInfo(strOne, findVar) {
-				// 匹配到了，记录字符串
-				strReturn := common.JoinSimpleStr(nameArry)
-				analysisFive.InsertAccessStr(strReturn)
-			}
-		}
-	}
-}
-
-// 第五轮查找是否调用过展开
-func (a *Analysis) findFiveTableAccessColon(prefixExp ast.Exp, keyExp ast.Exp, nodeLoc lexer.Location) {
-	a.findFiveTableAccess(prefixExp, keyExp, nodeLoc)
-}
-
 // 对变量的调用进行展开，例如:
 // local a = {}
 // print(a.b.c)
@@ -759,9 +643,6 @@ func (a *Analysis) expandVarStrMap(node *ast.TableAccessExp) {
 			// 如果是以!开头，表示为变量，进行替换处理
 			preVec[i] = "!var"
 		}
-		// if !common.JudgeSimpleStr(preVec[i]) {
-		// 	return
-		// }
 	}
 
 	strOne := preVec[0]
@@ -903,12 +784,6 @@ func (a *Analysis) findFuncColon(prefixExp ast.Exp, nameExp ast.Exp, nodeLoc lex
 		return
 	}
 
-	if a.isFiveTerm() {
-		// 代码提示，高级功能冒号的调用，暂时不做
-		a.findFiveTableAccessColon(prefixExp, nameExp, nodeLoc)
-		return
-	}
-
 	fileResult := a.curResult
 	fi := a.curFunc
 	scope := a.curScope
@@ -984,11 +859,13 @@ func (a *Analysis) findFuncColon(prefixExp ast.Exp, nameExp ast.Exp, nodeLoc lex
 		if a.isFourTerm() && referInfo == nil {
 			// 查找全局中是否有该变量
 			firstFile := a.getFirstFileResult(fileResult.Name)
-			// find self globalInfo
-			if ok, findVar := firstFile.FindGlobalVarInfo(strName, false, ""); ok {
-				// 判断是否是自己所要的引用关系
-				a.ReferenceResult.MatchVarInfo(a, strName, firstFile.Name, findVar, fi, strTable, nameExp, false)
-				return
+			if firstFile != nil {
+				// find self globalInfo
+				if ok, findVar := firstFile.FindGlobalVarInfo(strName, false, ""); ok {
+					// 判断是否是自己所要的引用关系
+					a.ReferenceResult.MatchVarInfo(a, strName, firstFile.Name, findVar, fi, strTable, nameExp, false)
+					return
+				}
 			}
 
 			// 所有工程的文件
@@ -1068,9 +945,6 @@ func (a *Analysis) getChangeCheckTerm() (checkTerm results.CheckTerm) {
 	if a.isFiveTerm() {
 		checkTerm = results.CheckTermFive
 	}
-	if a.isSixTerm() {
-		checkTerm = results.CheckTermSix
-	}
 
 	return checkTerm
 }
@@ -1133,8 +1007,8 @@ func (a *Analysis) getAsignSelfReferName() string {
 	return ""
 }
 
+// ChangeSelfToReferVar 增加前缀
 // strTable 值为self，转换为对应的变量
-// 增加的前缀
 func (a *Analysis) ChangeSelfToReferVar(strTable string, prefixStr string) (str string) {
 	fi := a.curFunc
 	str = strTable
@@ -1194,12 +1068,6 @@ func (a *Analysis) findTableDefine(node *ast.TableAccessExp) {
 		return
 	}
 
-	// 2) 如果是第五轮，查找是否为table的定义打点
-	if a.isFiveTerm() {
-		a.findFiveTableAccess(node.PrefixExp, node.KeyExp, node.Loc)
-		return
-	}
-
 	fileResult := a.curResult
 	fi := a.curFunc
 	scope := a.curScope
@@ -1227,8 +1095,8 @@ func (a *Analysis) findTableDefine(node *ast.TableAccessExp) {
 		return
 	}
 
-	// 第六轮，不进行展开分析, 只分析到_G.a ,获取a的变量
-	if a.isSixTerm() {
+	// 第五轮，不进行展开分析, 只分析到_G.a ,获取a的变量
+	if a.isFiveTerm() {
 		return
 	}
 
@@ -1275,11 +1143,13 @@ func (a *Analysis) findTableDefine(node *ast.TableAccessExp) {
 		if a.isFourTerm() && referInfo == nil {
 			// 查找全局中是否有该变量
 			firstFile := a.getFirstFileResult(fileResult.Name)
-			// find self globalInfo
-			if ok, oneVar := firstFile.FindGlobalVarInfo(strName, false, ""); ok {
-				// 判断是否是自己所要的引用关系
-				a.ReferenceResult.MatchVarInfo(a, strName, firstFile.Name, oneVar, fi, strName, node.KeyExp, false)
-				return
+			if firstFile != nil {
+				// find self globalInfo
+				if ok, oneVar := firstFile.FindGlobalVarInfo(strName, false, ""); ok {
+					// 判断是否是自己所要的引用关系
+					a.ReferenceResult.MatchVarInfo(a, strName, firstFile.Name, oneVar, fi, strName, node.KeyExp, false)
+					return
+				}
 			}
 
 			// 所有工程的文件

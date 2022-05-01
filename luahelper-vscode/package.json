@@ -2,7 +2,7 @@
     "name": "MoocHelper",
     "displayName": "MoocHelper",
     "description": "MoocHelper, Intellisense, Linting, Debugging, Code formatting, High-performance, and more.",
-    "version": "0.2.12",
+    "version": "0.2.15",
     "publisher": "lalawue",
     "author": {
         "name": "lalawue",
@@ -49,7 +49,6 @@
         "onLanguage:mooc",
         "onWebviewPanel:luahelper-doc",
         "onCommand:extension.luahelper.doc",
-        "onDebug"
     ],
     "main": "./out/extension",
     "contributes": {
@@ -352,10 +351,16 @@
                     "default": "#569CD6",
                     "description": "%luahelper.colors.annotatetype%"
                 },
+
                 "luahelper.base.rootdir": {
                     "type": "string",
                     "default": "./",
                     "description": "%luahelper.source.rootdir%"
+                },
+                "luahelper.base.report": {
+                    "type": "boolean",
+                    "default": true,
+                    "markdownDescription": "%luahelper.base.enableReport%"
                 },
                 "luahelper.base.lsp": {
                     "type": "string",
@@ -426,11 +431,12 @@
                     "description": "%luahelper.reference.incudeDefine%"
                 },
                 "luahelper.base.showOnline": {
-                    "default": true,
+                    "default": false,
                     "scope": "resource",
                     "type": "boolean",
                     "description": "%luahelper.show.online%"
                 },
+               
                 "luahelper.base.showCostTime": {
                     "default": false,
                     "scope": "resource",
@@ -634,7 +640,7 @@
                     "scope": "resource",
                     "type": "integer",
                     "markdownDescription": "%luahelper.format.line_breaks_after_function_body%"
-                },
+                },             
                 "luahelper.Warn.AllEnable": {
                     "default": true,
                     "scope": "resource",

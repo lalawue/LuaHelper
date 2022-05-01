@@ -227,12 +227,14 @@ func getVarInfoExpandStrHover(varInfo *common.VarInfo, inputVec []string, inputF
 // 查看varInfo详细的类型，递归查找
 func (a *AllProject) getVarRelateTypeStr(varInfo *common.VarInfo) (strType string) {
 	strType = varInfo.GetVarTypeDetail()
-	if strType != "any" {
+
+	if varInfo.ReferFunc != nil {
+		//strType = varInfo.ReferFunc.GetFuncCompleteStr("function", true, false)
+		strType = a.getFuncShowStr(varInfo, "function", true, false, true, false)
 		return
 	}
 
-	if varInfo.ReferFunc != nil {
-		strType = varInfo.ReferFunc.GetFuncCompleteStr("function", true, false)
+	if strType != "any" {
 		return
 	}
 
@@ -278,7 +280,19 @@ func (a *AllProject) getVarInfoMapStr(varInfo *common.VarInfo, existMap map[stri
 		strComment := a.GetLineComment(value.FileName, value.Loc.StartLine)
 		strComment = strings.TrimPrefix(strComment, " ")
 		if strComment != "" {
-			newStr = newStr + "  -- " + strComment
+			// 只提取一行注释
+			strVec := strings.Split(strComment, "\n")
+			if len(strVec) > 0 {
+				strComment = strVec[0]
+			}
+		}
+		if strComment != "" {
+			if strings.HasPrefix(strComment, "-") {
+				newStr = newStr + "  --" + strComment
+			} else {
+				newStr = newStr + "  -- " + strComment
+			}
+
 		}
 		if oldStr, ok := existMap[key]; ok {
 			if needReplaceMapStr(oldStr, strValueType, newStr) {
@@ -654,7 +668,8 @@ func (a *AllProject) getOneFuncReturnStr(fileName string, oneReturn common.Retur
 // paramTipFlag 表示是否提示函数的参数
 // colonFlag 如果是冒号语法，有时候需要忽略掉self
 // returnFlag 是否需要获取函数的返回值类型
-func (a *AllProject) getFuncShowStr(varInfo *common.VarInfo, funcName string, paramTipFlag, colonFlag, returnFlag bool) (str string) {
+// returnMultiline 多个返回值时，是否需要多行显示
+func (a *AllProject) getFuncShowStr(varInfo *common.VarInfo, funcName string, paramTipFlag, colonFlag, returnFlag, returnMultiline bool) (str string) {
 	if varInfo == nil || varInfo.ReferFunc == nil {
 		return
 	}
@@ -717,7 +732,7 @@ func (a *AllProject) getFuncShowStr(varInfo *common.VarInfo, funcName string, pa
 	if flag {
 		for i, oneType := range typeList {
 			oneStr := annotateast.TypeConvertStr(oneType)
-			if len(commentList) > i && commentList[i] != "" {
+			if returnMultiline && len(commentList) > i && commentList[i] != "" {
 				oneStr += "  -- " + commentList[i]
 			}
 			resultList = append(resultList, oneStr)
@@ -725,11 +740,20 @@ func (a *AllProject) getFuncShowStr(varInfo *common.VarInfo, funcName string, pa
 	}
 
 	if len(fun.ReturnVecs) == 0 {
+
 		for i, oneStr := range resultList {
-			funcName = fmt.Sprintf("%s\n  ->%d. %s", funcName, i+1, oneStr)
+			if returnMultiline {
+				funcName = fmt.Sprintf("%s\n  ->%d. %s", funcName, i+1, oneStr)
+			} else {
+				if i == 0 {
+					funcName = funcName + ": " + oneStr
+				} else {
+					funcName = funcName + ", " + oneStr
+				}
+			}
 		}
 
-		if len(resultList) > 0 {
+		if returnMultiline && len(resultList) > 0 {
 			funcName += "\n"
 		}
 
@@ -756,9 +780,17 @@ func (a *AllProject) getFuncShowStr(varInfo *common.VarInfo, funcName string, pa
 	}
 
 	for i, oneStr := range resultList {
-		funcName = fmt.Sprintf("%s\n  ->%d. %s", funcName, i+1, oneStr)
+		if returnMultiline {
+			funcName = fmt.Sprintf("%s\n  ->%d. %s", funcName, i+1, oneStr)
+		} else {
+			if i == 0 {
+				funcName = funcName + ": " + oneStr
+			} else {
+				funcName = funcName + ", " + oneStr
+			}
+		}
 	}
-	if len(resultList) > 0 {
+	if returnMultiline && len(resultList) > 0 {
 		funcName += "\n"
 	}
 	return funcName
