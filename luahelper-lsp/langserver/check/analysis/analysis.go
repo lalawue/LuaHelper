@@ -8,6 +8,7 @@ import (
 	"luahelper-lsp/langserver/check/projects"
 	"luahelper-lsp/langserver/check/results"
 	"luahelper-lsp/langserver/log"
+	"strings"
 )
 
 // IgnoreInfo 忽略的信息
@@ -141,6 +142,8 @@ func (a *Analysis) exitScope() {
 
 	fileResult := a.curResult
 
+	isMooc := strings.HasSuffix(fileResult.Name, ".mooc")
+
 	// 扫描当前scope，判断哪些局部变量定义了未使用
 	for varName, varInfoList := range scope.LocVarMap {
 		// _ 局部变量忽略, _G也忽略
@@ -187,6 +190,10 @@ func (a *Analysis) exitScope() {
 					// 为系统的模块或函数名，忽略掉
 					continue
 				}
+			}
+
+			if isMooc && (varName == "Self" || varName == "Super") {
+				continue
 			}
 
 			errorStr := fmt.Sprintf("%s declared and not used", varName)
