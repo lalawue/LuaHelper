@@ -140,7 +140,7 @@ func (a *Analysis) cgFuncCallParamCheck(node *ast.FuncCallStat) {
 
 		//函数调用处的参数类型
 		argType := common.GetAnnTypeFromExp(argExp)
-		if argType == "any" {
+		if argType == "any" || argType == paramType {
 			continue
 		} else if argType == "LuaTypeRefer" {
 			//若是引用，则继续查找定义
@@ -195,7 +195,6 @@ func (a *Analysis) cgFuncCallParamCheck(node *ast.FuncCallStat) {
 		//类型不一致，报警
 		errorStr := fmt.Sprintf("Expected parameter of type '%s', '%s' provided", paramType, argType)
 		fileResult.InsertError(common.CheckErrorCallParam, errorStr, node.Loc)
-
 	}
 
 }
