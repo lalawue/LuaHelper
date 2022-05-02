@@ -20,6 +20,7 @@ type ScopeInfo struct {
 	NotVarMap    map[string]NotValStruct // 存放这个块中所有的 if not a ; a这样的局部变量，检查后面的语法
 	MidNotVarMap map[string]NotValStruct // 中间存放的，例如某一个模块里面 if not a or b then，后面又有if not a then，在这个块里面存放临时的数据
 	Loc          lexer.Location          // 位置信息
+	ExtMark      string                  // 标记 class/struct/extension 信息
 }
 
 // CreateScopeInfo 创建一个ScopeInfo指针
@@ -31,6 +32,7 @@ func CreateScopeInfo(parent *ScopeInfo, funcInfo *FuncInfo, loc lexer.Location) 
 		LocVarMap:    nil,
 		NotVarMap:    nil,
 		MidNotVarMap: nil,
+		ExtMark:      "",
 	}
 }
 
@@ -414,6 +416,11 @@ func (scope *ScopeInfo) FindAllLocalVal(gScopes []*ScopeInfo) (allSymbolStruct [
 
 		// 获取参数变量
 		if oneLocInfo.IsParam {
+			continue
+		}
+
+		// 过滤 class/struct/extenstion 中的 super / Self / Super
+		if scope.ExtMark == "class" && (strVar == "__st" || strVar == "Self" || strVar == "Super") {
 			continue
 		}
 

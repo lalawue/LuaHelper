@@ -1243,6 +1243,7 @@ func (a *Analysis) cgClassStat(node *ast.ClassDefStat) {
 	subScope := common.CreateScopeInfo(backupScope, nil, node.Loc)
 	backupScope.AppendSubScope(subScope)
 	a.curScope = subScope
+	a.curScope.ExtMark = "class"
 
 	for _, nf := range node.Vars {
 		a.cgLocalVarDeclStat(nf)

@@ -1068,7 +1068,7 @@ func (p *moocParser) parserClassDefStat(global bool, keyToken lexer.TkKind) ast.
 	// 取巧使用 Super
 	if super != nil {
 		varList = append(varList, &ast.LocalVarDeclStat{
-			NameList:   []string{"_"},
+			NameList:   []string{"__st"},
 			VarLocList: locList,
 			AttrList:   attrList,
 			ExpList:    []ast.Exp{super},
