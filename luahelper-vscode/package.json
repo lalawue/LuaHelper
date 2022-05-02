@@ -48,7 +48,7 @@
         "onLanguage:lua",
         "onLanguage:mooc",
         "onWebviewPanel:luahelper-doc",
-        "onCommand:extension.luahelper.doc",
+        "onCommand:extension.luahelper.doc"
     ],
     "main": "./out/extension",
     "contributes": {
