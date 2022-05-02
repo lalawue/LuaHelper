@@ -28,6 +28,11 @@ type Token struct {
 	rangeToPos   int    // token end in all pos
 }
 
+const (
+	ModeLua  = 1
+	ModeMooc = 2
+)
+
 func (l *Token) GetLine() int {
 	return l.line
 }
@@ -51,6 +56,8 @@ type Lexer struct {
 	commentMap map[int]*CommentInfo // 保存所有的注释信息, key值为行号，从1开始。如果该注释有多行，为最后一行的行号。
 
 	errHandler ErrorHandler // error reporting; or nil
+
+	keywords map[string]TkKind // lua and mooc have different keywords
 }
 
 // return <0 for fail, ==0 to stopped, ==1 to advance
@@ -75,6 +82,15 @@ func NewLexer(chunk []byte, chunkName string) *Lexer {
 		tokenStartPos: 0,
 		currentPos:    0,
 		commentMap:    map[int]*CommentInfo{},
+		keywords:      keywords,
+	}
+}
+
+func (l *Lexer) SetMode(mode int) {
+	if mode == ModeLua {
+		l.keywords = keywords
+	} else {
+		l.keywords = keywordsMooc
 	}
 }
 
@@ -458,7 +474,7 @@ func (l *Lexer) NextTokenStruct() {
 
 	if c == '_' || isLetter(c) {
 		token := l.scanIdentifier()
-		if kind, ok := keywords[token]; ok {
+		if kind, ok := l.keywords[token]; ok {
 			l.setNowToken(kind, token)
 		} else {
 			l.setNowToken(TkIdentifier, token)

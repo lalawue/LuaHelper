@@ -178,6 +178,31 @@ func (tok TkKind) String() string {
 }
 
 var keywords = map[string]TkKind{
+	"and":      TkOpAnd,
+	"break":    TkKwBreak,
+	"do":       TkKwDo,
+	"else":     TkKwElse,
+	"elseif":   TkKwElseif,
+	"end":      TkKwEnd,
+	"false":    TkKwFalse,
+	"for":      TkKwFor,
+	"function": TkKwFunction,
+	"goto":     TkKwGoto,
+	"if":       TkKwIf,
+	"in":       TkKwIn,
+	"local":    TkKwLocal,
+	"nil":      TkKwNil,
+	"not":      TkOpNot,
+	"or":       TkOpOr,
+	"repeat":   TkKwRepeat,
+	"return":   TkKwReturn,
+	"then":     TkKwThen,
+	"true":     TkKwTrue,
+	"until":    TkKwUntil,
+	"while":    TkKwWhile,
+}
+
+var keywordsMooc = map[string]TkKind{
 	"and":       TkOpAnd,
 	"break":     TkKwBreak,
 	"case":      TkKwCase,
