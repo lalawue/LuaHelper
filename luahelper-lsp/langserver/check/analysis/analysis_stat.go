@@ -627,7 +627,15 @@ func (a *Analysis) cgLocalVarDeclStat(node *ast.LocalVarDeclStat) {
 			// 关联到函数的表达式
 			locVar.ReferExp = node.ExpList[nExps-1]
 		} else {
-			locVar := scope.AddLocVar(a.curResult.Name, node.NameList[i], common.LuaTypeNil, nil, nowLoc, varIndex)
+			var locVar *common.VarInfo
+			if oneAttr == ast.VDKEXPORT {
+				fi := a.curFunc
+				locVar = common.CreateOneGlobal(a.curResult.Name, fi.FuncLv, fi.ScopeLv, nowLoc, false, nil, nil, "")
+				// 插入全局变量
+				a.insertAnalysisGlobalVar(node.NameList[i], locVar)
+			} else {
+				locVar = scope.AddLocVar(a.curResult.Name, node.NameList[i], common.LuaTypeNil, nil, nowLoc, varIndex)
+			}
 			if oneAttr == ast.RDKTOCLOSE {
 				locVar.IsClose = true
 			}
