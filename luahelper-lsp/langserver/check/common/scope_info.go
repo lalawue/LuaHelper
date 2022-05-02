@@ -489,10 +489,12 @@ func (scope *ScopeInfo) FindAllLocalVal(gScopes []*ScopeInfo) (allSymbolStruct [
 		allSymbolStruct = append(allSymbolStruct, oneSymbol)
 	}
 
-	// 分析当前scope中中没有分析的 subscope
-	for scopeInfo := range scopeInfos {
-		symbols := scopeInfo.FindAllLocalVal(nil)
-		allSymbolStruct = append(allSymbolStruct, symbols...)
+	if scope.ExtMark != "class" {
+		// 分析当前scope中中没有分析的 subscope
+		for scopeInfo := range scopeInfos {
+			symbols := scopeInfo.FindAllLocalVal(nil)
+			allSymbolStruct = append(allSymbolStruct, symbols...)
+		}
 	}
 
 	return
