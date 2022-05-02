@@ -1236,19 +1236,23 @@ func (a *Analysis) cgClassStat(node *ast.ClassDefStat) {
 	// class 作为 table 定义，在 class scope 外可见
 	a.cgAssignStat(node.Class)
 
-	// 这里是为了忽略 Self 和 super local assign stat
-	a.extMark = "class_def"
+	a.enterScope()
+
+	backupScope := a.curScope
+
+	subScope := common.CreateScopeInfo(backupScope, nil, node.Loc)
+	backupScope.AppendSubScope(subScope)
+	a.curScope = subScope
+
 	for _, nf := range node.Vars {
 		a.cgLocalVarDeclStat(nf)
 	}
-	a.extMark = "class_scope"
-
-	a.enterScope()
 	for _, vf := range node.List {
 		a.cgAssignStat(vf)
 	}
+
 	a.exitScope()
-	a.extMark = ""
+	a.curScope = backupScope
 }
 
 func (a *Analysis) cgImportStat(node *ast.ImportDefStat) {

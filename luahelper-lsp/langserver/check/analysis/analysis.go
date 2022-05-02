@@ -78,7 +78,6 @@ func CreateAnalysis(checkTerm results.CheckTerm, entryFile string) *Analysis {
 		ReferenceResult:     nil,
 		realTimeFlag:        false,
 		curFunc:             nil,
-		extMark:             "",
 	}
 }
 
