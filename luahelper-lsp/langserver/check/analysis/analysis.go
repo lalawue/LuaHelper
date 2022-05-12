@@ -521,10 +521,6 @@ func (a *Analysis) checkTableAccess(node *ast.TableAccessExp) {
 		return
 	}
 
-	if strTableName == "tableB" {
-		strTableName = "tableB"
-	}
-
 	strKey := common.GetExpName(node.KeyExp)
 	// 如果不是简单字符，退出
 	if !common.JudgeSimpleStr(strKey) || strKey == "" {
@@ -569,10 +565,6 @@ func (a *Analysis) checkConstAssgin(node ast.Exp) {
 		return
 	}
 
-	if name == "tableB" {
-		name = "tableB"
-	}
-
 	ok, varInfo := a.FindVarDefineForCheck(name, loc)
 	if !ok {
 		return
@@ -586,6 +578,49 @@ func (a *Analysis) checkConstAssgin(node ast.Exp) {
 		//标记了常量，却赋值
 		errStr := fmt.Sprintf("(%s) is const, can not assgin", name)
 		a.curResult.InsertError(common.CheckErrorConstAssign, errStr, loc)
-		//a.curResult.InsertError(common.CheckErrorConstAssign, errStr, loc)
 	}
+}
+
+// 比较注解类型和参数/返回值类型
+func (a *Analysis) CompAnnTypeAndCodeType(annType string, codeType string) bool {
+	if annType == codeType || annType == "any" ||
+		codeType == "any" || codeType == "nil" {
+		return true
+	}
+
+	if codeType == "LuaTypeRefer" || codeType == "function" {
+		return true
+	}
+
+	commonType := map[string]bool{
+		"number":  true,
+		"string":  true,
+		"boolean": true,
+		"table":   true,
+	}
+
+	//认为class类型与table类型相等
+	if (!commonType[annType] && codeType == "table") ||
+		(!commonType[codeType] && annType == "table") {
+		return true
+	}
+
+	if !commonType[annType] {
+
+		annTypeInfo := a.Projects.GetAnnClassInfo(annType)
+		if annTypeInfo == nil {
+			return true
+		}
+
+		if annTypeInfo.AliasInfo != nil {
+			//别名先不判断
+			return true
+		}
+		// } else if annTypeInfo.ClassInfo != nil {
+		// 	//class先不判断
+		// 	return true
+		// }
+	}
+
+	return false
 }

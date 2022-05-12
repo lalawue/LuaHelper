@@ -129,72 +129,127 @@ func (a *Analysis) cgFuncCallParamCheck(node *ast.FuncCallStat) {
 		}
 	}
 
+	//参数个数正确之后再判断参数类型匹配
+	a.funcCallParamTypeCheck(node, referFunc)
+}
+
+func (a *Analysis) funcCallParamTypeCheck(node *ast.FuncCallStat, referFunc *common.FuncInfo) {
+
+	// 第二轮或第三轮函数参数check
+	if !a.isNeedCheck() {
+		return
+	}
+
+	// 判断是否开启了函数调用参数个数不匹配的校验
+	if common.GConfig.IsGlobalIgnoreErrType(common.CheckErrorCallParamType) {
+		return
+	}
+
+	fileResult := a.curResult
 	//到此参数个数正常，继续检查参数类型匹配
 	paramTypeMap := a.Projects.GetFuncParamType(referFunc.FileName, referFunc.Loc.StartLine-1)
+	if len(paramTypeMap) == 0 {
+		//函数没有写注解
+		return
+	}
+
 	for i, argExp := range node.Args {
-		//函数定义处注解的参数类型
-		paramType := annotateast.GetAstTypeName(paramTypeMap[referFunc.ParamList[i]])
-		if paramType == "any" {
+		if _, ok := paramTypeMap[referFunc.ParamList[i]]; !ok {
+			//该参数没写注解
 			continue
+		}
+
+		annTypeVec := paramTypeMap[referFunc.ParamList[i]]
+		allTypeStr := ""
+		for _, annTypeOne := range annTypeVec {
+			typeOne := annotateast.GetAstTypeName(annTypeOne)
+			if len(allTypeStr) > 0 {
+				allTypeStr = fmt.Sprintf("%s|", allTypeStr)
+			}
+			allTypeStr = fmt.Sprintf("%s%s", allTypeStr, typeOne)
 		}
 
 		//函数调用处的参数类型
-		argType := common.GetAnnTypeFromExp(argExp)
-		if argType == "any" || argType == paramType {
-			continue
-		} else if argType == "LuaTypeRefer" {
-			//若是引用，则继续查找定义
+		argType := a.GetAnnTypeStrForRefer(argExp)
 
-			name := ""
-			loc := lexer.Location{}
-			switch exp := argExp.(type) {
-			case *ast.NameExp:
-				name = exp.Name
-				loc = exp.Loc
-				// //case *ast.ParensExp:
-				// //case *ast.TableAccessExp:
-				// 	//name, loc = common.GetTableNameInfo(exp)
-				// // case *ast.FuncCallExp:
-				// // 	name = exp.NameExp.Str
-			}
+		hasMatch := false
+		for _, annTypeOne := range annTypeVec {
+			//函数定义处注解的参数类型
+			annType := annotateast.GetAstTypeName(annTypeOne)
 
-			if len(name) <= 0 {
-				continue
-			}
-
-			ok, varInfo := a.FindVarDefineForCheck(name, loc)
-			if !ok {
-				continue
-			}
-
-			//定义处若有注解 取注解的类型
-			argAnnType := a.Projects.GetAnnotateTypeString(varInfo)
-
-			//定义处表达式推导的类型
-			argType = common.GetAnnTypeFromLuaType(varInfo.VarType)
-
-			//若有注解类型则先比较
-			if len(argAnnType) > 0 && paramType == argAnnType {
-				continue
-			}
-
-			if paramType == argType {
-				//例如：参数类型要求table
-				//---@type classA
-				//local tableA = {}
-				//argType是table, argAnnType是classA, 在这里通过
-				continue
-			}
-
-			if argType == "any" || argType == "LuaTypeRefer" {
-				//若仍是LuaTypeRefer 不再递归推导 否则影响插件效率
-				continue
+			if a.CompAnnTypeAndCodeType(annType, argType) {
+				hasMatch = true
+				break
 			}
 		}
 
+		if hasMatch {
+			continue
+		}
+
+		loc := common.GetExpLoc(argExp)
+
 		//类型不一致，报警
-		errorStr := fmt.Sprintf("Expected parameter of type '%s', '%s' provided", paramType, argType)
-		fileResult.InsertError(common.CheckErrorCallParam, errorStr, node.Loc)
+		errorStr := fmt.Sprintf("Expected parameter of type '%s', '%s' provided", allTypeStr, argType)
+		fileResult.InsertError(common.CheckErrorCallParamType, errorStr, loc)
+
+	}
+}
+
+//获取表达式类型字符串，如果是引用，则递归查找，(即支持类型传递)
+func (a *Analysis) GetAnnTypeStrForRefer(referExp ast.Exp) string {
+	argType := common.GetAnnTypeFromExp(referExp)
+	if argType != "LuaTypeRefer" {
+		return argType
+	}
+
+	//若是引用，则继续查找定义
+	name := ""
+	loc := lexer.Location{}
+	switch exp := referExp.(type) {
+	case *ast.NameExp:
+		name = exp.Name
+		loc = exp.Loc
+		// //case *ast.ParensExp:
+		// //case *ast.TableAccessExp:
+		// 	//name, loc = common.GetTableNameInfo(exp)
+	case *ast.FuncCallExp:
+		// if nameExp, ok := exp.PrefixExp.(*ast.NameExp); ok && exp.NameExp == nil {
+		// 	name = nameExp.Name
+		// 	loc = nameExp.Loc
+		// }
+		// 如果函数有多个返回值，如何确定取哪个返回值类型呢
+	}
+
+	if len(name) <= 0 {
+		return argType
+	}
+
+	ok, varInfo := a.FindVarDefineForCheck(name, loc)
+	if !ok {
+		return argType
+	}
+
+	//优先取变量定义处的注解类型
+	defAnnType := a.Projects.GetAnnotateTypeString(varInfo)
+	if len(defAnnType) > 0 {
+		return defAnnType
+	}
+
+	//若无注解，则取变量定义处表达式推导的类型
+	argType = common.GetAnnTypeFromLuaType(varInfo.VarType)
+
+	//例如：
+	//---@type classA
+	//local tableA = {}
+	//argType是table, defAnnType是classA,
+	//当tableA作为参数时，table或者classA都可以匹配
+
+	if argType == "LuaTypeRefer" {
+		//若仍是LuaTypeRefer 递归推导
+		return a.GetAnnTypeStrForRefer(varInfo.ReferExp)
+	} else {
+		return argType
 	}
 
 }

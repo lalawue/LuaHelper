@@ -111,11 +111,9 @@ func (a *AllProject) FindOpenFileDefine(strFile string, strOpenFile string) (def
 		return defineVecs
 	}
 
-	// FIXME: 不需要检查第一阶段的结果
-	// fileOpenStruct, _ := a.GetFirstFileStuct(strOpenFile)
-	// if fileOpenStruct == nil {
-	// 	return defineVecs
-	// }
+	if fileOpenStruct, _ := a.GetFirstFileStuct(strOpenFile); fileOpenStruct == nil {
+		return defineVecs
+	}
 
 	defineVecs = append(defineVecs, DefineStruct{
 		StrFile: strOpenFile,

@@ -29,9 +29,6 @@ func GetTableNameInfo(tabExp *ast.TableAccessExp) (string, lexer.Location) {
 	}
 
 	keyName := GetExpName(tabExp.KeyExp)
-	if keyName == "tableB" {
-		keyName = "tableB"
-	}
 
 	//return GetExpName(tabExp.PrefixExp), GetExpLoc(tabExp.PrefixExp)
 	preName := GetExpName(tabExp.PrefixExp)
@@ -67,6 +64,12 @@ func GetExpType(node ast.Exp) LuaType {
 		if exp.Op == lexer.TkOpEq || exp.Op == lexer.TkOpNe || exp.Op == lexer.TkOpLt || exp.Op == lexer.TkOpLe ||
 			exp.Op == lexer.TkOpGt || exp.Op == lexer.TkOpGe {
 			return LuaTypeBool
+		}
+
+		if exp.Op == lexer.TkOpOr {
+			return GetExpType(exp.Exp1)
+		} else if exp.Op == lexer.TkOpAnd {
+			return GetExpType(exp.Exp2)
 		}
 
 		oneType := GetExpType(exp.Exp1)
@@ -1007,9 +1010,9 @@ func GetExpLoc(node ast.Exp) (loc lexer.Location) {
 	case *ast.FalseExp:
 		loc = exp.Loc
 	case *ast.FloatExp:
-		//loc = exp.Loc
+		loc = exp.Loc
 	case *ast.IntegerExp:
-		//loc = exp.Loc
+		loc = exp.Loc
 	}
 
 	return loc

@@ -71,7 +71,7 @@ func TypeConvertStr(astType Type) string {
 				paramTypeStr = TypeConvertStr(subAst.ParamTypeList[index])
 			}
 
-			funStr = funStr + paramStr + " : " + paramTypeStr
+			funStr = funStr + paramStr + ": " + paramTypeStr
 
 		}
 
@@ -79,7 +79,7 @@ func TypeConvertStr(astType Type) string {
 
 		for index, oneReturn := range subAst.ReturnTypeList {
 			if index == 0 {
-				funStr = funStr + " : "
+				funStr = funStr + ": "
 			} else {
 				funStr = funStr + ", "
 			}
@@ -352,6 +352,7 @@ func GetStateLocInfo(oneState AnnotateState, col int) (typeStr string, noticeStr
 		if colInLocation(state.NameLoc, col) {
 			typeStr = ""
 			noticeStr = "alias name"
+			commentStr = state.Comment
 			return
 		}
 

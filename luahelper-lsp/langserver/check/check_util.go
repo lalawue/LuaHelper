@@ -273,25 +273,45 @@ func (a *AllProject) GetFuncDefaultParamInfo(fileName string, lastLine int, para
 }
 
 // 获取参数类型
-func (a *AllProject) GetFuncParamType(fileName string, lastLine int) (retMap map[string]annotateast.Type) {
-	retMap = map[string]annotateast.Type{}
+func (a *AllProject) GetFuncParamType(fileName string, lastLine int) (retMap map[string][]annotateast.Type) {
+	retMap = map[string][]annotateast.Type{}
 	annotateParamInfo := a.GetFuncParamInfo(fileName, lastLine)
 	if annotateParamInfo == nil {
-		return retMap
+		return
 	}
 	for _, oneParam := range annotateParamInfo.ParamList {
 		switch subAst := oneParam.ParamType.(type) {
 		case *annotateast.MultiType:
 			if len(subAst.TypeList) == 0 {
-				return
+				continue
 			}
-			retMap[oneParam.Name] = subAst.TypeList[0]
+			retMap[oneParam.Name] = subAst.TypeList
 		case *annotateast.NormalType:
-			retMap[oneParam.Name] = oneParam.ParamType
+			retMap[oneParam.Name] = []annotateast.Type{oneParam.ParamType}
 		}
 
 	}
 	return retMap
+}
+
+// 获取返回值类型 返回一个二维数组 如---@return number,string|number 对应[[number],[string,number]]
+func (a *AllProject) GetFuncReturnType(fileName string, lastLine int) (retVec [][]annotateast.Type) {
+
+	annotatePeturnInfo := a.GetFuncReturnInfo(fileName, lastLine)
+	if annotatePeturnInfo == nil {
+		return
+	}
+	for _, oneReturn := range annotatePeturnInfo.ReturnTypeList {
+		oneRetVec := []annotateast.Type{}
+		switch subAst := oneReturn.(type) {
+		case *annotateast.MultiType:
+			for _, oneType := range subAst.TypeList {
+				oneRetVec = append(oneRetVec, oneType)
+			}
+		}
+		retVec = append(retVec, oneRetVec)
+	}
+	return retVec
 }
 
 //
@@ -445,6 +465,16 @@ func (a *AllProject) IsMemberOfAnnotateClassByLoc(strFile string, strFieldNameli
 	return isStrict, isMemberMap, className
 }
 
+//3 根据className 查找注解的class信息
+func (a *AllProject) GetAnnClassInfo(className string) *common.CreateTypeInfo {
+	createTypeList, flag := a.createTypeMap[className]
+	if !flag || len(createTypeList.List) == 0 {
+		return nil
+	}
+	//只取第一个，如果有多个，后续会报警
+	return createTypeList.List[0]
+}
+
 // 获取注解 ---type
 func (a *AllProject) IsAnnotateTypeConst(name string, varInfo *common.VarInfo) (isConst bool) {
 	isConst = false
@@ -498,10 +528,35 @@ func (a *AllProject) GetAnnotateTypeString(varInfo *common.VarInfo) string {
 	}
 
 	fragmentInfo := annotateFile.GetLineFragementInfo(varInfo.Loc.StartLine - 1)
+	if fragmentInfo == nil {
+		return ""
+	}
 
-	//作为变量的const
-	if fragmentInfo != nil &&
-		fragmentInfo.TypeInfo != nil &&
+	//如果是函数 取返回值
+	if varInfo.ReferFunc != nil {
+
+		if fragmentInfo.ReturnInfo != nil &&
+			len(fragmentInfo.ReturnInfo.ReturnTypeList) > 0 {
+
+			switch subType := fragmentInfo.ReturnInfo.ReturnTypeList[0].(type) {
+			case *annotateast.MultiType:
+				if len(subType.TypeList) == 0 {
+					return ""
+				}
+				switch subSubType := subType.TypeList[0].(type) {
+				case *annotateast.NormalType:
+					return subSubType.StrName
+				}
+			case *annotateast.NormalType:
+				return subType.StrName
+
+			}
+		}
+
+		return ""
+	}
+
+	if fragmentInfo.TypeInfo != nil &&
 		len(fragmentInfo.TypeInfo.TypeList) > 0 {
 
 		switch subType := fragmentInfo.TypeInfo.TypeList[0].(type) {
