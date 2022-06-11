@@ -7,6 +7,7 @@ import (
 	"luahelper-lsp/langserver/lspcommon"
 	"luahelper-lsp/langserver/pathpre"
 	lsp "luahelper-lsp/langserver/protocol"
+	"sort"
 	"strings"
 )
 
@@ -31,8 +32,14 @@ func (l *LspServer) TextDocumentSymbol(ctx context.Context, vs lsp.DocumentSymbo
 func transferSymbolVec(strFile string, level int, fileSymbolVec []common.FileSymbolStruct) (items []lsp.DocumentSymbol) {
 	vecLen := len(fileSymbolVec)
 	items = make([]lsp.DocumentSymbol, 0, vecLen)
+	var itemFuncs []lsp.DocumentSymbol
+	var itemLVars []lsp.DocumentSymbol
 
 	isMooc := strings.HasSuffix(strFile, ".mooc")
+	if isMooc {
+		itemFuncs = make([]lsp.DocumentSymbol, 0, vecLen/2+1)
+		itemLVars = make([]lsp.DocumentSymbol, 0, vecLen/2+1)
+	}
 
 	for _, oneSymbol := range fileSymbolVec {
 		ra := lspcommon.LocToRange(&oneSymbol.Loc)
@@ -100,7 +107,60 @@ func transferSymbolVec(strFile string, level int, fileSymbolVec []common.FileSym
 			symbol.Detail = "variable"
 		}
 
-		items = append(items, symbol)
+		if isMooc {
+			if symbol.Detail == "function" {
+				itemFuncs = append(itemFuncs, symbol)
+			} else if symbol.Detail == "variable" && oneSymbol.ContainerName == "local" {
+				itemLVars = append(itemLVars, symbol)
+			} else {
+				items = append(items, symbol)
+			}
+		} else {
+			items = append(items, symbol)
+		}
+	}
+
+	if isMooc {
+		// ignore local variable inside functions
+		sort.Sort(lspSymbolSlice(itemFuncs))
+		sort.Sort(lspSymbolSlice(itemLVars))
+		index := 0
+		for _, it := range itemLVars {
+			if isSymbolRangeIn(itemFuncs, &index, it.Range.Start.Line) {
+				continue
+			}
+			items = append(items, it)
+		}
+		items = append(items, itemFuncs...)
+	} else {
+		items = append(items, itemLVars...)
 	}
 	return
+}
+
+// for sort lsp.DocumentSymbol
+type lspSymbolSlice []lsp.DocumentSymbol
+
+func (a lspSymbolSlice) Len() int {
+	return len(a)
+}
+
+func (a lspSymbolSlice) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+
+func (a lspSymbolSlice) Less(i, j int) bool {
+	return a[i].Range.Start.Line < a[j].Range.Start.Line
+}
+
+// check is symbol in function
+func isSymbolRangeIn(items []lsp.DocumentSymbol, index *int, startLine uint32) bool {
+	for i := *index; i < len(items); i++ {
+		it := items[i]
+		if startLine >= it.Range.Start.Line && startLine <= it.Range.End.Line {
+			*index = i
+			return true
+		}
+	}
+	return false
 }
