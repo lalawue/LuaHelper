@@ -111,9 +111,10 @@ func (a *AllProject) FindOpenFileDefine(strFile string, strOpenFile string) (def
 		return defineVecs
 	}
 
-	if fileOpenStruct, _ := a.GetFirstFileStuct(strOpenFile); fileOpenStruct == nil {
-		return defineVecs
-	}
+	// FIXME: strOpenFile 可能是位于 clientLuaLPaths 中的文件，而不仅仅是当前工程下面的文件
+	// if fileOpenStruct, _ := a.GetFirstFileStuct(strOpenFile); fileOpenStruct == nil {
+	// 	return defineVecs
+	// }
 
 	defineVecs = append(defineVecs, DefineStruct{
 		StrFile: strOpenFile,

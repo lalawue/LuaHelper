@@ -31,8 +31,8 @@ type DirManager struct {
 	// 插件前端配置的读取Lua标准库等lua文件的文件夹
 	clientExtLuaPath string
 
-	// 类似 LUA_PATH 的配置
-	clientLuaPaths []string
+	// 类似 LUA_LPATH 的配置
+	clientLuaLPaths []string
 
 	// 类似 LUA_CPATH 的配置
 	clientLuaCPaths []string
@@ -376,7 +376,7 @@ func (d *DirManager) MatchAllDirReferFile(curFile string, referStr string) (refe
 		}
 	}
 
-	for _, extDir := range d.clientLuaPaths {
+	for _, extDir := range d.clientLuaLPaths {
 		strPath := d.GetCompletePath(extDir, referStr)
 		if g.FileExistCache(strPath) {
 			// lua文件存在，正常
@@ -402,7 +402,7 @@ func (d *DirManager) appendBestDir(curFile string) (matchDir string) {
 	if d.mainDir == "" {
 		return
 	}
-	for _, prefix := range d.clientLuaPaths {
+	for _, prefix := range d.clientLuaLPaths {
 		path := prefix + curFile
 		if filefolder.IsFileExist(path) {
 			matchDir = path
@@ -679,8 +679,8 @@ func (d *DirManager) GetBestMatchReferFile(curFile string, referFile string, all
 		candidateVec = append(candidateVec, strFile)
 	}
 
-	// 检查 LUA_PATH
-	for _, dir := range d.clientLuaPaths {
+	// 检查 LUA_LPATH
+	for _, dir := range d.clientLuaLPaths {
 		strFile := d.GetCompletePath(dir, referFile)
 		if filefolder.IsFileExist(strFile) {
 			candidateVec = append(candidateVec, strFile)

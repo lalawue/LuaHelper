@@ -267,8 +267,8 @@ type (
 		PathSeparator         string              `json:"PathSeparator"`         // 项目中引入其他文件，路径分隔符，默认为. 例如require("one.b") 表示引入one/b.lua 文件
 		AnntotateSets         []AnntotateSet      `json:"AnntotateSets"`         // 自动推导的注解方式
 		OtherDir              string              `json:"OtherDir"`              // 引入另外一个目录，可以用于设置引入额外LuaHelper注解格式文件夹
-		ProjectLuaPath        string              `json:"ProjectLuaPath"`        // 工程 LuaPath
-		ProjectLuaCPath       string              `json:"ProjectLuaCPath"`       // 工程 LuaPath		
+		ProjectLuaLPath       string              `json:"ProjectLuaLPath"`       // 工程 LuaLPath
+		ProjectLuaCPath       string              `json:"ProjectLuaCPath"`       // 工程 LuaCPath
 	}
 )
 
@@ -297,7 +297,8 @@ func createDefaultJSONCfig() {
 		ReferFrameFiles:       []referFrameFile{{Name: "import", Type: 0, SuffixFlag: 1}},
 		PathSeparator:         ".",
 		AnntotateSets:         []AnntotateSet{},
-		ProjectLuaPath:        "",
+		ProjectLuaLPath:       "",
+		ProjectLuaCPath:       "",
 	}
 }
 
@@ -764,11 +765,11 @@ func (g *GlobalConfig) ReadConfig(strDir, configFileName string, checkFlagList [
 	}
 
 	// 工程类似的 LuaPath
-	if jsonConfig.ProjectLuaPath != "" {
-		GConfig.dirManager.clientLuaPaths = strings.Split(jsonConfig.ProjectLuaPath, ";")
-		for i, dir := range GConfig.dirManager.clientLuaPaths {
+	if jsonConfig.ProjectLuaLPath != "" {
+		GConfig.dirManager.clientLuaLPaths = strings.Split(jsonConfig.ProjectLuaLPath, ";")
+		for i, dir := range GConfig.dirManager.clientLuaLPaths {
 			if !strings.HasSuffix(dir, "/") {
-				GConfig.dirManager.clientLuaPaths[i] = dir + "/"
+				GConfig.dirManager.clientLuaLPaths[i] = dir + "/"
 			}
 		}
 	}
