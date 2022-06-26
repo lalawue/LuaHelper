@@ -306,8 +306,15 @@ func (a *AllProject) getVarCommonFuncParam(strFile string, varStruct *common.Def
 	// 5)冒号 函数，self语法进行转换
 	if common.ChangeFuncSelfToReferVar(minFunc, varStruct) {
 		minFunc = minFunc.GetParent()
-		varStruct.PosLine = minFunc.Loc.StartLine
-		varStruct.PosCh = minFunc.Loc.StartColumn
+		// 由于 moocscript 的 class/struct AST 是拼凑的，而不是标准的 table:function() 格式，
+		// 这里特别处理一下
+		loc := minFunc.Loc
+		clsScope := a.findClassStructScopeInfo(minScope)
+		if clsScope != nil && clsScope.Parent != nil {
+			loc = clsScope.Parent.LocVarMap[varStruct.StrVec[0]].GetLastOneVar().Loc
+		}
+		varStruct.PosLine = loc.StartLine
+		varStruct.PosCh = loc.StartColumn
 	}
 
 	// 6) 判断是否找的在table的定义处, 如果是不缺前面的定义
@@ -344,6 +351,20 @@ func (a *AllProject) getVarCommonFuncParam(strFile string, varStruct *common.Def
 		thirdStruct:   thirdStruct,
 	}
 	return comParam
+}
+
+// 查找上层是否存在 class/struct scopeInfo
+func (a *AllProject) findClassStructScopeInfo(curInfo *common.ScopeInfo) *common.ScopeInfo {
+	parent := curInfo
+	for {
+		if parent == nil || parent.Parent == nil {
+			return nil
+		}
+		parent = parent.Parent
+		if parent.ExtMark == "class" {
+			return parent
+		}
+	}
 }
 
 // findOldDefineInfo 查找变量最初的定义地方
