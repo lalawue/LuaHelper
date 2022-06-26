@@ -1,6 +1,7 @@
 package check
 
 import (
+	"fmt"
 	"luahelper-lsp/langserver/check/annotation/annotateast"
 	"luahelper-lsp/langserver/check/common"
 	"luahelper-lsp/langserver/check/compiler/ast"
@@ -314,33 +315,8 @@ func (a *AllProject) GetFuncReturnType(fileName string, lastLine int) (retVec []
 	return retVec
 }
 
-//
-func (a *AllProject) GetAnnotateClassAllFieldOfStrict(astType annotateast.Type, fileName string,
-	lastLine int) (isStrict bool, retMap map[string]bool, className string) {
-
-	isStrict = false
-	retMap = map[string]bool{}
-	className = ""
-
-	classInfoList := a.getAllNormalAnnotateClass(astType, fileName, lastLine)
-
-	//暂不处理多个class情况
-	if len(classInfoList) == 1 {
-		isStrict = classInfoList[0].ClassState.IsStrict
-		for k := range classInfoList[0].FieldMap {
-			retMap[k] = true
-		}
-		className = classInfoList[0].ClassState.Name
-		return isStrict, retMap, className
-	}
-
-	return isStrict, retMap, className
-
-}
-
 // 获取注解class
-func (a *AllProject) IsMemberOfAnnotateClassByVar(strMemName string, strVarName string, varInfo *common.VarInfo) (isStrict bool, isMember bool, className string) {
-	isStrict = false
+func (a *AllProject) IsMemberOfAnnotateClassByVar(strMemName string, strVarName string, varInfo *common.VarInfo) (isMember bool, className string) {
 	isMember = false
 	className = ""
 
@@ -357,27 +333,21 @@ func (a *AllProject) IsMemberOfAnnotateClassByVar(strMemName string, strVarName 
 
 	fragmentInfo := annotateFile.GetLineFragementInfo(varInfo.Loc.StartLine - 1)
 
+	classNameVec := []string{}
 	//2 取出class name
 	if varInfo.IsParam || varInfo.IsForParam {
 		// 这里判断是否为函数参数的注解
 		// 函数参数的注解，会额外的用下面的注解类型
 		// ---@param one class
 		if fragmentInfo != nil &&
-			fragmentInfo.ParamInfo != nil &&
-			len(fragmentInfo.ParamInfo.ParamList) > 0 {
+			fragmentInfo.ParamInfo != nil {
 
 			for i := 0; i < len(fragmentInfo.ParamInfo.ParamList); i++ {
 				paramLine := fragmentInfo.ParamInfo.ParamList[i]
 
 				//找到对应的那行---@param one class 再获取class
 				if paramLine.Name == strVarName {
-
-					strSimpleList := annotateast.GetAllNormalStrList(paramLine.ParamType)
-					if len(strSimpleList) == 0 {
-						return
-					}
-
-					className = strSimpleList[0]
+					classNameVec = annotateast.GetAllNormalStrList(paramLine.ParamType)
 					break
 				}
 			}
@@ -385,40 +355,48 @@ func (a *AllProject) IsMemberOfAnnotateClassByVar(strMemName string, strVarName 
 	} else {
 		// 非函数参数 一般是 ---@type
 		if fragmentInfo != nil &&
-			fragmentInfo.TypeInfo != nil &&
-			len(fragmentInfo.TypeInfo.TypeList) > 0 &&
-			fragmentInfo.TypeInfo.TypeList[0] != nil {
+			fragmentInfo.TypeInfo != nil {
 
-			strSimpleList := annotateast.GetAllNormalStrList(fragmentInfo.TypeInfo.TypeList[0])
-			if len(strSimpleList) == 0 {
-				return
+			for i := 0; i < len(fragmentInfo.TypeInfo.TypeList); i++ {
+				typeOne := fragmentInfo.TypeInfo.TypeList[i]
+				retVec := annotateast.GetAllNormalStrList(typeOne)
+				classNameVec = append(classNameVec, retVec...)
 			}
-
-			className = strSimpleList[0]
 		}
 	}
 
-	if len(className) <= 0 {
+	if len(classNameVec) == 0 {
 		return
 	}
 
-	//3 根据className 查找注解的class信息
-	createTypeList, flag := a.createTypeMap[className]
-	if !flag || len(createTypeList.List) == 0 ||
-		createTypeList.List[0].ClassInfo == nil ||
-		createTypeList.List[0].ClassInfo.ClassState == nil {
-		return
+	for _, classNameOne := range classNameVec {
+		if len(className) > 0 {
+			className = fmt.Sprintf("%s|", className)
+		}
+		className = fmt.Sprintf("%s%s", className, classNameOne)
 	}
 
-	//只取第一个，如果有多个，后续会报警
-	isStrict = createTypeList.List[0].ClassInfo.ClassState.IsStrict
-	_, isMember = createTypeList.List[0].ClassInfo.FieldMap[strMemName]
-	return isStrict, isMember, className
+	//3 根据className 查找注解的class信息 只取第一个，如果有多个，后续会报警
+	for _, classNameOne := range classNameVec {
+		createTypeList, flag := a.createTypeMap[classNameOne]
+		if !flag || len(createTypeList.List) == 0 ||
+			createTypeList.List[0].ClassInfo == nil ||
+			createTypeList.List[0].ClassInfo.ClassState == nil {
+			continue
+		}
+
+		//只取第一个，如果有多个，后续会报警
+		_, isMember = createTypeList.List[0].ClassInfo.FieldMap[strMemName]
+		if isMember {
+			return isMember, className
+		}
+	}
+
+	return false, className
 }
 
 // 获取注解class
-func (a *AllProject) IsMemberOfAnnotateClassByLoc(strFile string, strFieldNamelist []string, lineForGetAnnotate int) (isStrict bool, isMemberMap map[string]bool, className string) {
-	isStrict = false
+func (a *AllProject) IsMemberOfAnnotateClassByLoc(strFile string, strFieldNamelist []string, lineForGetAnnotate int) (isMemberMap map[string]bool, className string) {
 	isMemberMap = map[string]bool{}
 	className = ""
 
@@ -429,40 +407,43 @@ func (a *AllProject) IsMemberOfAnnotateClassByLoc(strFile string, strFieldNameli
 		return
 	}
 
+	classNameVec := []string{}
 	fragmentInfo := annotateFile.GetLineFragementInfo(lineForGetAnnotate)
 	if fragmentInfo != nil &&
-		fragmentInfo.TypeInfo != nil &&
-		len(fragmentInfo.TypeInfo.TypeList) > 0 &&
-		fragmentInfo.TypeInfo.TypeList[0] != nil {
+		fragmentInfo.TypeInfo != nil {
+		for i := 0; i < len(fragmentInfo.TypeInfo.TypeList); i++ {
+			typeOne := fragmentInfo.TypeInfo.TypeList[i]
+			retVec := annotateast.GetAllNormalStrList(typeOne)
+			classNameVec = append(classNameVec, retVec...)
+		}
+	}
 
-		strSimpleList := annotateast.GetAllNormalStrList(fragmentInfo.TypeInfo.TypeList[0])
-		if len(strSimpleList) == 0 {
-			return
+	if len(classNameVec) <= 0 {
+		return
+	}
+
+	for _, classNameOne := range classNameVec {
+		if len(className) > 0 {
+			className = fmt.Sprintf("%s|", className)
+		}
+		className = fmt.Sprintf("%s%s", className, classNameOne)
+	}
+
+	//3 根据className 查找注解的class信息 只取第一个，如果有多个，后续会报警
+	for _, classNameOne := range classNameVec {
+		createTypeList, flag := a.createTypeMap[classNameOne]
+		if !flag || len(createTypeList.List) == 0 ||
+			createTypeList.List[0].ClassInfo == nil ||
+			createTypeList.List[0].ClassInfo.ClassState == nil {
+			continue
 		}
 
-		className = strSimpleList[0]
+		for _, strMemName := range strFieldNamelist {
+			_, isMemberMap[strMemName] = createTypeList.List[0].ClassInfo.FieldMap[strMemName]
+		}
 	}
 
-	if len(className) <= 0 {
-		return
-	}
-
-	//3 根据className 查找注解的class信息
-	createTypeList, flag := a.createTypeMap[className]
-	if !flag || len(createTypeList.List) == 0 ||
-		createTypeList.List[0].ClassInfo == nil ||
-		createTypeList.List[0].ClassInfo.ClassState == nil {
-		return
-	}
-
-	//只取第一个，如果有多个，后续会报警
-	isStrict = createTypeList.List[0].ClassInfo.ClassState.IsStrict
-
-	for _, strMemName := range strFieldNamelist {
-		_, isMemberMap[strMemName] = createTypeList.List[0].ClassInfo.FieldMap[strMemName]
-	}
-
-	return isStrict, isMemberMap, className
+	return isMemberMap, className
 }
 
 //3 根据className 查找注解的class信息
@@ -517,64 +498,98 @@ func (a *AllProject) IsAnnotateTypeConst(name string, varInfo *common.VarInfo) (
 	return isConst
 }
 
-// 获取注解中的类型
-func (a *AllProject) GetAnnotateTypeString(varInfo *common.VarInfo) string {
+// 获取注解中的类型 可以指定取第几个 如函数有多个返回值时候
+func (a *AllProject) GetAnnotateTypeString(varInfo *common.VarInfo, name string, idx int) (retVec []string) {
 
+	retVec = []string{}
 	// 1) 获取文件对应的annotateFile
 	annotateFile := a.getAnnotateFile(varInfo.FileName)
 	if annotateFile == nil {
 		log.Error("GetAnnotateType annotateFile is nil, file=%s", varInfo.FileName)
-		return ""
+		return
 	}
 
 	fragmentInfo := annotateFile.GetLineFragementInfo(varInfo.Loc.StartLine - 1)
 	if fragmentInfo == nil {
-		return ""
+		return
 	}
 
 	//如果是函数 取返回值
 	if varInfo.ReferFunc != nil {
 
-		if fragmentInfo.ReturnInfo != nil &&
-			len(fragmentInfo.ReturnInfo.ReturnTypeList) > 0 {
+		if fragmentInfo.ReturnInfo == nil ||
+			len(fragmentInfo.ReturnInfo.ReturnTypeList) < idx {
+			return
+		}
 
-			switch subType := fragmentInfo.ReturnInfo.ReturnTypeList[0].(type) {
-			case *annotateast.MultiType:
-				if len(subType.TypeList) == 0 {
-					return ""
-				}
-				switch subSubType := subType.TypeList[0].(type) {
+		switch retType := fragmentInfo.ReturnInfo.ReturnTypeList[idx-1].(type) {
+		case *annotateast.MultiType:
+			for _, oneRetType := range retType.TypeList {
+				switch oneType := oneRetType.(type) {
 				case *annotateast.NormalType:
-					return subSubType.StrName
+					retVec = append(retVec, oneType.StrName)
 				}
-			case *annotateast.NormalType:
-				return subType.StrName
+			}
+		case *annotateast.NormalType:
+			retVec = append(retVec, retType.StrName)
 
+		}
+
+		return retVec
+	}
+
+	//如果是函数参数
+	if fragmentInfo.ParamInfo != nil &&
+		len(fragmentInfo.ParamInfo.ParamList) >= idx {
+
+		//需要用参数名称匹配
+		matchIdx := -1
+		for i, paramState := range fragmentInfo.ParamInfo.ParamList {
+			if paramState.Name == name {
+				matchIdx = i
+				break
 			}
 		}
 
-		return ""
+		if matchIdx < 0 || matchIdx >= len(fragmentInfo.ParamInfo.ParamList) {
+			return
+		}
+
+		switch typeInfo := fragmentInfo.ParamInfo.ParamList[matchIdx].ParamType.(type) {
+		case *annotateast.MultiType:
+			for _, oneTypeInfo := range typeInfo.TypeList {
+				switch oneType := oneTypeInfo.(type) {
+				case *annotateast.NormalType:
+					retVec = append(retVec, oneType.StrName)
+				}
+			}
+
+		case *annotateast.NormalType:
+			retVec = append(retVec, typeInfo.StrName)
+		}
+		return retVec
 	}
 
 	if fragmentInfo.TypeInfo != nil &&
-		len(fragmentInfo.TypeInfo.TypeList) > 0 {
+		len(fragmentInfo.TypeInfo.TypeList) >= idx {
 
-		switch subType := fragmentInfo.TypeInfo.TypeList[0].(type) {
+		switch typeInfo := fragmentInfo.TypeInfo.TypeList[idx-1].(type) {
 		case *annotateast.MultiType:
-			if len(subType.TypeList) == 0 {
-				return ""
+			for _, oneTypeInfo := range typeInfo.TypeList {
+				switch oneType := oneTypeInfo.(type) {
+				case *annotateast.NormalType:
+					retVec = append(retVec, oneType.StrName)
+				}
 			}
-			switch subSubType := subType.TypeList[0].(type) {
-			case *annotateast.NormalType:
-				return subSubType.StrName
-			}
-		case *annotateast.NormalType:
-			return subType.StrName
 
+		case *annotateast.NormalType:
+			retVec = append(retVec, typeInfo.StrName)
 		}
+
+		return retVec
 	}
 
-	return ""
+	return
 }
 
 // GetFirstFileStuct 获取第一阶段文件处理的结果

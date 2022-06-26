@@ -9,7 +9,7 @@ import (
 )
 
 // TextDocumentReferences 文件中查找符合的所有的引用
-func (l *LspServer) TextDocumentReferences(ctx context.Context, vs protocol.ReferenceParams) (locList []protocol.Location, err error) {
+func (l *LspServer)TextDocumentReferences(ctx context.Context, vs protocol.ReferenceParams) (locList []protocol.Location, err error) {
 	comResult := l.beginFileRequest(vs.TextDocument.URI, vs.Position)
 	if !comResult.result {
 		return

@@ -78,19 +78,13 @@ func parserAliasState(l *annotatelexer.AnnotateLexer) annotateast.AnnotateState 
 }
 
 // 解析@class
-// ---@class [strict] MY_TYPE[:PARENT_TYPE] [@comment]
-// ---@class [strict] MY_TYPE{:PARENT_TYPE [,PARENT_TYPE]}
+// ---@class MY_TYPE[:PARENT_TYPE] [@comment]
+// ---@class MY_TYPE{:PARENT_TYPE [,PARENT_TYPE]}
 func parserClassState(l *annotatelexer.AnnotateLexer) annotateast.AnnotateState {
 	// skip class token
 	l.NextTokenOfKind(annotatelexer.ATokenKwClass)
 
 	classState := &annotateast.AnnotateClassState{}
-
-	// 是否限定成员
-	if l.LookAheadKind() == annotatelexer.ATokenKwStrict {
-		classState.IsStrict = true
-		l.NextToken()
-	}
 
 	// 解析class的名称
 	classState.Name = l.NextFieldName()

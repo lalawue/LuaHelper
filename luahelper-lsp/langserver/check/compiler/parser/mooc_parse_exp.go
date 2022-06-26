@@ -163,17 +163,17 @@ func (p *moocParser) parseNumberExp() ast.Exp {
 	if i, ok := parseInteger(token); ok {
 		return &ast.IntegerExp{
 			Val: i,
-			//Loc: l.GetNowTokenLoc(),
+			Loc: l.GetNowTokenLoc(),
 		}
 	} else if f, ok := parseFloat(token); ok {
 		return &ast.FloatExp{
 			Val: f,
-			//Loc: l.GetNowTokenLoc(),
+			Loc: l.GetNowTokenLoc(),
 		}
 	} else if n, ok := parseLuajitNum(token); ok {
 		return &ast.IntegerExp{
 			Val: n,
-			//Loc: l.GetNowTokenLoc(),
+			Loc: l.GetNowTokenLoc(),
 		}
 	} else { // todo
 		p.insertParserErr(l.GetPreTokenLoc(), "not a number: "+token)
