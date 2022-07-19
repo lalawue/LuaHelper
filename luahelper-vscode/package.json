@@ -2,7 +2,7 @@
     "name": "MoocHelper",
     "displayName": "MoocHelper",
     "description": "MoocHelper, Intellisense, Linting, Debugging, Code formatting, High-performance, and more.",
-    "version": "0.2.16",
+    "version": "0.2.17",
     "publisher": "lalawue",
     "author": {
         "name": "lalawue",
@@ -762,7 +762,7 @@
                     "description": "%luahelper.Warn.CheckDuplicateIf%"
                 },
                 "luahelper.Warn.CheckSelfAssign": {
-                    "default": true,
+                    "default": false,
                     "scope": "resource",
                     "type": "boolean",
                     "description": "%luahelper.Warn.CheckSelfAssign%"
