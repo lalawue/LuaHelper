@@ -1067,7 +1067,7 @@ func (a *Analysis) cgAssignStat(node *ast.AssignStat) {
 
 				scope := a.curScope
 
-				varInfo := scope.AddLocVar(fileResult.Name, strName, common.GetExpType(exp), exp, node.Loc, varIndex)
+				varInfo := scope.AddLocVar(fileResult.Name, strName, common.GetExpType(exp), exp, loc, varIndex)
 
 				switch exp.(type) {
 				case *ast.FuncDefExp:
