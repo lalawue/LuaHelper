@@ -46,20 +46,27 @@
 		},
 		{
 			"include": "#fn_def"
+		},
+		{
+			"include": "#todo"
 		}
 	],
 	"repository": {
 		"keywords": {
-			"patterns": [{
-				"name": "keyword.control.moocscript",
-				"match": "\\b(and|break|case|class|continue|default|defer|do|else|elseif|export|extension|fn|from|for|goto|guard|if|import|in|local|not|or|repeat|return|static|struct|switch|until|while)\\b"
-			}]
+			"patterns": [
+				{
+					"name": "keyword.control.moocscript",
+					"match": "\\b(and|break|case|class|continue|default|defer|do|else|elseif|export|extension|fn|from|for|goto|guard|if|import|in|local|not|or|repeat|return|static|struct|switch|until|while)\\b"
+				}
+			]
 		},
 		"constants": {
-			"patterns": [{
-				"name": "constant.language.moocscript",
-				"match": "\\b(false|nil|true|self)\\b"
-			}]
+			"patterns": [
+				{
+					"name": "constant.language.moocscript",
+					"match": "\\b(false|nil|true|self)\\b"
+				}
+			]
 		},
 		"number": {
 			"patterns": [
@@ -67,31 +74,39 @@
 					"name": "constant.numeric.moocscript",
 					"match": "0x[0-9a-fA-F]++[uU]?+[lL]{,2}|\\.[0-9]++[eE]\\-[0-9]++|[0-9]++\\.[0-9]++|\\.[0-9]++|(?=[^_a-zA-Z])[0-9]++[uU]?+[lL]{,2}"
 				}
-			]			
+			]
 		},
 		"globals": {
-			"patterns": [{
-				"name": "support.class.moocscript",
-				"match": "\\b(_G|_VERSION|_ENV|assert|bit32|collectgarbage|coroutine|debug|dofile|error|getfenv|getmetatable|io|ipairs|jit|load|loadfile|loadstring|math|module|next|os|package|pairs|pcall|print|rawequal|rawget|rawlen|rawset|require|select|setfenv|setmetatable|string|table|tonumber|tostring|type|unpack|xpcall)\\b"
-			}]
+			"patterns": [
+				{
+					"name": "support.class.moocscript",
+					"match": "\\b(_G|_VERSION|_ENV|assert|bit32|collectgarbage|coroutine|debug|dofile|error|getfenv|getmetatable|io|ipairs|jit|load|loadfile|loadstring|math|module|next|os|package|pairs|pcall|print|rawequal|rawget|rawlen|rawset|require|select|setfenv|setmetatable|string|table|tonumber|tostring|type|unpack|xpcall)\\b"
+				}
+			]
 		},
 		"invalid": {
-			"patterns": [{
-				"name": "invalid.illegal.moocscript",
-				"match": "\\b(end|function|then)\\b"
-			}]
+			"patterns": [
+				{
+					"name": "invalid.illegal.moocscript",
+					"match": "\\b(end|function|then)\\b"
+				}
+			]
 		},
 		"classname": {
-			"patterns": [{
-				"name": "markup.bold.moocscript",
-				"match": "(?<=\\W+|^)_*+[A-Z]++[_0-9a-zA-Z]*+(?=\\(??)"
-			}]
+			"patterns": [
+				{
+					"name": "markup.bold.moocscript",
+					"match": "(?<=\\W+|^)_*+[A-Z]++[_0-9a-zA-Z]*+(?=\\(??)"
+				}
+			]
 		},
 		"subname": {
-			"patterns": [{
-				"name": "variable.parameter.moocscript",
-				"match": "\\.[\\._0-9a-zA-Z]++(?=[^\\(])"
-			}]			
+			"patterns": [
+				{
+					"name": "variable.parameter.moocscript",
+					"match": "\\.[\\._0-9a-zA-Z]++(?=[^\\(])"
+				}
+			]
 		},
 		"ffi_cdef": {
 			"begin": "(?<=\\.cdef\\s*\\()\\s*(\\[(=*)\\[)",
@@ -163,12 +178,14 @@
 				}
 			]
 		},
-        "comment_line": {
-            "patterns": [{
-                "name": "comment.line.double-dash.moocscript",
-                "match": "--.*"
-            }]
-        },
+		"comment_line": {
+			"patterns": [
+				{
+					"name": "comment.line.double-dash.moocscript",
+					"match": "--.*"
+				}
+			]
+		},
 		"fn_call": {
 			"patterns": [
 				{
@@ -182,6 +199,14 @@
 				{
 					"name": "constant.character.escape.moocscript",
 					"match": "(?<=fn\\s*?)_*[0-9a-z]++[_0-9a-zA-Z\\.:]*+(?=\\()"
+				}
+			]
+		},
+		"todo": {
+			"patterns": [
+				{
+					"match": "(--[- ]*)(todo|TODO)(\\b)",
+					"name": "keyword.todo.lua"
 				}
 			]
 		}
