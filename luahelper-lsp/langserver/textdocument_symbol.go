@@ -7,7 +7,6 @@ import (
 	"luahelper-lsp/langserver/lspcommon"
 	"luahelper-lsp/langserver/pathpre"
 	lsp "luahelper-lsp/langserver/protocol"
-	"sort"
 	"strings"
 )
 
@@ -32,10 +31,9 @@ func (l *LspServer) TextDocumentSymbol(ctx context.Context, vs lsp.DocumentSymbo
 func transferSymbolVec(strFile string, level int, fileSymbolVec []common.FileSymbolStruct) (items []lsp.DocumentSymbol) {
 	vecLen := len(fileSymbolVec)
 	items = make([]lsp.DocumentSymbol, 0, vecLen)
-	itemFuncs := make([]lsp.DocumentSymbol, 0, vecLen/2+1)
-	itemLVars := make([]lsp.DocumentSymbol, 0, vecLen/2+1)
 
 	isMooc := strings.HasSuffix(strFile, ".mooc")
+	lastFuncSymbol := lsp.DocumentSymbol{}
 
 	for _, oneSymbol := range fileSymbolVec {
 		ra := lspcommon.LocToRange(&oneSymbol.Loc)
@@ -93,6 +91,7 @@ func transferSymbolVec(strFile string, level int, fileSymbolVec []common.FileSym
 		} else if oneSymbol.Kind == common.IKFunction {
 			symbol.Kind = lsp.Function
 			symbol.Detail = "function"
+			lastFuncSymbol = symbol
 		} else if oneSymbol.Kind == common.IKAnnotateMark {
 			symbol.Kind = lsp.Field
 			symbol.Detail = oneSymbol.Name
@@ -103,26 +102,16 @@ func transferSymbolVec(strFile string, level int, fileSymbolVec []common.FileSym
 			symbol.Detail = "variable"
 		}
 
-		if symbol.Detail == "function" {
-			itemFuncs = append(itemFuncs, symbol)
-		} else if symbol.Detail == "variable" && oneSymbol.ContainerName == "local" {
-			itemLVars = append(itemLVars, symbol)
+		if symbol.Detail == "variable" &&
+			oneSymbol.ContainerName == "local" &&
+			lastFuncSymbol.Detail == "function" &&
+			symbol.Range.Start.Line > lastFuncSymbol.Range.Start.Line &&
+			symbol.Range.End.Line < lastFuncSymbol.Range.End.Line {
+			// igonre local variable inside function
 		} else {
 			items = append(items, symbol)
 		}
 	}
-
-	// ignore local variable inside functions
-	sort.Sort(lspSymbolSlice(itemFuncs))
-	sort.Sort(lspSymbolSlice(itemLVars))
-	index := 0
-	for _, it := range itemLVars {
-		if isSymbolRangeIn(itemFuncs, &index, it.Range.Start.Line) {
-			continue
-		}
-		items = append(items, it)
-	}
-	items = append(items, itemFuncs...)
 	return
 }
 

@@ -37,6 +37,10 @@ func (a *AllProject) FindFileAllSymbol(strFile string) (symbolVec []common.FileS
 	// 2) 获取文件的注解类型信息, 用于显示当前文档的符号
 	annotateSymbolVec := a.GetAnnotateFileSymbolStruct(strFile)
 
+	// 3) 先排序
+	sort.Sort(commonSymbolSlice(symbolVec))
+	sort.Sort(commonSymbolSlice(annotateSymbolVec))
+
 	if strings.HasSuffix(strFile, ".mooc") {
 		symbolVec = appendFileSymbolStruct(symbolVec, annotateSymbolVec)
 	} else {
@@ -875,4 +879,19 @@ func recvFindSymbol(results *resultSorter, recvData symbolsChan) {
 		return
 	}
 	results.results = append(results.results, recvData.returnResult...)
+}
+
+// for sort lsp.DocumentSymbol
+type commonSymbolSlice []common.FileSymbolStruct
+
+func (a commonSymbolSlice) Len() int {
+	return len(a)
+}
+
+func (a commonSymbolSlice) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+
+func (a commonSymbolSlice) Less(i, j int) bool {
+	return a[i].Loc.StartLine < a[j].Loc.StartLine
 }
