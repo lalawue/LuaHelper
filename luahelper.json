@@ -1,6 +1,6 @@
 {
     "BaseDir": "./",
-    "ProjectLuaPath": "/Users/lalawue/rocks/share/lua/5.1",
+    "ProjectLuaLPath": "/Users/lalawue/rocks/share/lua/5.1",
     "ProjectLuaCPath": "/Users/lalawue/rocks/lib/lua/5.1",
     "ReferMatchPathFlag": 1,
     "IgnoreReadFiles": [
