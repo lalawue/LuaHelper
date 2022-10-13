@@ -2,6 +2,7 @@ package langserver
 
 import (
 	"context"
+	"luahelper-lsp/langserver/check"
 	"luahelper-lsp/langserver/check/common"
 	"luahelper-lsp/langserver/log"
 	"luahelper-lsp/langserver/lspcommon"
@@ -9,7 +10,7 @@ import (
 )
 
 // TextDocumentReferences 文件中查找符合的所有的引用
-func (l *LspServer)TextDocumentReferences(ctx context.Context, vs protocol.ReferenceParams) (locList []protocol.Location, err error) {
+func (l *LspServer) TextDocumentReferences(ctx context.Context, vs protocol.ReferenceParams) (locList []protocol.Location, err error) {
 	comResult := l.beginFileRequest(vs.TextDocument.URI, vs.Position)
 	if !comResult.result {
 		return
@@ -20,7 +21,7 @@ func (l *LspServer)TextDocumentReferences(ctx context.Context, vs protocol.Refer
 	}
 
 	project := l.getAllProject()
-	varStruct := getVarStruct(comResult.contents, comResult.offset, comResult.pos.Line, comResult.pos.Character, comResult.strFile)
+	varStruct := check.GetVarStruct(comResult.contents, comResult.offset, comResult.pos.Line, comResult.pos.Character, comResult.strFile)
 	if !varStruct.ValidFlag {
 		log.Error("TextDocumentReferences not valid")
 		return
@@ -48,7 +49,7 @@ func (l *LspServer)TextDocumentReferences(ctx context.Context, vs protocol.Refer
 		}
 
 		locList = append(locList, protocol.Location{
-			URI:   getFileDocumentURI(referVarInfo.StrFile),
+			URI:   lspcommon.GetFileDocumentURI(referVarInfo.StrFile),
 			Range: lspcommon.LocToRange(&referVarInfo.Loc),
 		})
 	}

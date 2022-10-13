@@ -2,6 +2,7 @@ package langserver
 
 import (
 	"context"
+	"luahelper-lsp/langserver/check"
 	"luahelper-lsp/langserver/check/common"
 	"luahelper-lsp/langserver/log"
 	"luahelper-lsp/langserver/lspcommon"
@@ -29,7 +30,7 @@ func (l *LspServer) TextDocumentHighlight(ctx context.Context, vs lsp.TextDocume
 	}
 
 	project := l.getAllProject()
-	varStruct := getVarStruct(comResult.contents, comResult.offset, comResult.pos.Line, comResult.pos.Character, comResult.strFile)
+	varStruct := check.GetVarStruct(comResult.contents, comResult.offset, comResult.pos.Line, comResult.pos.Character, comResult.strFile)
 	if !varStruct.ValidFlag {
 		log.Error("TextDocumentHighlight varStruct.ValidFlag not valid")
 		return

@@ -224,35 +224,43 @@ func (a *Analysis) funcCallParamTypeCheck(node *ast.FuncCallStat, referFunc *com
 
 //GetAnnTypeStrForRefer 获取表达式类型字符串，如果是引用，则递归查找，(即支持类型传递)
 func (a *Analysis) GetAnnTypeStrForRefer(referExp ast.Exp, idx int) (retVec []string) {
-	retVec = []string{}
+
 	argType := common.GetAnnTypeFromExp(referExp)
 	if argType != "LuaTypeRefer" {
 		retVec = append(retVec, argType)
-		return retVec
-	}
-
-	//若是引用，则继续查找定义
-	name := ""
-	loc := lexer.Location{}
-	switch exp := referExp.(type) {
-	case *ast.NameExp:
-		name = exp.Name
-		loc = exp.Loc
-		// //case *ast.ParensExp:
-		// //case *ast.TableAccessExp:
-		// 	//name, loc = common.GetTableNameInfo(exp)
-	case *ast.FuncCallExp:
-		if nameExp, ok := exp.PrefixExp.(*ast.NameExp); ok && exp.NameExp == nil {
-			name = nameExp.Name
-			loc = nameExp.Loc
-		}
-	}
-
-	if len(name) <= 0 {
 		return
 	}
 
-	ok, varInfo := a.FindVarDefineForCheck(name, loc)
+	//若是引用，则继续查找定义
+	preName := ""
+	varName := ""
+	keyName := ""
+	preLoc := lexer.Location{}
+	varLoc := lexer.Location{}
+	isTableExp := false
+	isTableWhole := false
+	switch exp := referExp.(type) {
+	case *ast.NameExp:
+		varName = exp.Name
+		varLoc = exp.Loc
+	case *ast.TableAccessExp:
+		preName, varName, keyName, preLoc, varLoc, isTableWhole = common.GetTableNameInfo(exp)
+		isTableExp = true
+	case *ast.FuncCallExp:
+		if nameExp, ok := exp.PrefixExp.(*ast.NameExp); ok && exp.NameExp == nil {
+			varName = nameExp.Name
+			varLoc = nameExp.Loc
+		}
+	}
+
+	if isTableExp {
+		//当是表且有截断 不继续推导类型
+		if !isTableWhole {
+			return
+		}
+	}
+
+	ok, varInfo, _ := a.FindVarDefineForCheck(preName, varName, preLoc, varLoc, true)
 	if !ok {
 		return
 	}
@@ -263,13 +271,23 @@ func (a *Analysis) GetAnnTypeStrForRefer(referExp ast.Exp, idx int) (retVec []st
 	}
 
 	//优先取变量定义处的注解类型
-	defAnnTypeVec := a.Projects.GetAnnotateTypeString(varInfo, name, varIdx)
+	defAnnTypeVec := a.Projects.GetAnnotateTypeString(varInfo, varName, keyName, varIdx)
 	if len(defAnnTypeVec) > 0 {
 		return defAnnTypeVec
 	}
 
 	//若无注解，则取变量定义处表达式推导的类型
-	argType = common.GetAnnTypeFromLuaType(varInfo.VarType)
+	//如果是表exp，到这里已经是：表exp完整，如果有keyname就取keyname的类型
+	if isTableExp && len(keyName) > 0 {
+		//必须取到keyName的类型 否则退出
+		if keyVarInfo, ok := varInfo.SubMaps[keyName]; ok {
+			argType = common.GetAnnTypeFromLuaType(keyVarInfo.VarType)
+		} else {
+			return
+		}
+	} else {
+		argType = common.GetAnnTypeFromLuaType(varInfo.VarType)
+	}
 
 	//例如：
 	//---@type classA
@@ -277,9 +295,12 @@ func (a *Analysis) GetAnnTypeStrForRefer(referExp ast.Exp, idx int) (retVec []st
 	//argType是table, defAnnType是classA,
 	//当tableA作为参数时，table或者classA都可以匹配
 
-	if argType == "LuaTypeRefer" {
-		//若仍是LuaTypeRefer 递归推导
-		return a.GetAnnTypeStrForRefer(varInfo.ReferExp, varIdx)
+	if argType == "LuaTypeRefer" && isTableWhole {
+		//若仍是LuaTypeRefer 且完整解析了table 可以递归
+		//table的递归会导致栈溢出，先屏蔽
+		if !isTableExp {
+			return a.GetAnnTypeStrForRefer(varInfo.ReferExp, varIdx)
+		}
 	}
 
 	retVec = append(retVec, argType)

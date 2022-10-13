@@ -23,7 +23,7 @@ func (l *LspServer) TextDocumentSignatureHelp(ctx context.Context, vs lsp.TextDo
 	}
 
 	pos := vs.Position
-	varStruct := getVarStruct(comResult.contents, comResult.offset, pos.Line, pos.Character, comResult.strFile)
+	varStruct := check.GetVarStruct(comResult.contents, comResult.offset, pos.Line, pos.Character, comResult.strFile)
 	if !varStruct.ValidFlag {
 		return
 	}
@@ -131,7 +131,7 @@ func (l *LspServer) getFuncParamCandidateType(ctx context.Context, url lsp.Docum
 		return
 	}
 
-	varStruct := getVarStruct(comResult.contents, comResult.offset, pos.Line, pos.Character, comResult.strFile)
+	varStruct := check.GetVarStruct(comResult.contents, comResult.offset, pos.Line, pos.Character, comResult.strFile)
 	if !varStruct.ValidFlag {
 		return
 	}

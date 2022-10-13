@@ -2,6 +2,7 @@ package langserver
 
 import (
 	"context"
+	"luahelper-lsp/langserver/check"
 	"luahelper-lsp/langserver/check/common"
 	"luahelper-lsp/langserver/log"
 	"luahelper-lsp/langserver/lspcommon"
@@ -9,7 +10,7 @@ import (
 )
 
 // TextDocumentRename 批量更改名字
-func (l *LspServer)TextDocumentRename(ctx context.Context, vs lsp.RenameParams) (edit lsp.WorkspaceEdit, err error) {
+func (l *LspServer) TextDocumentRename(ctx context.Context, vs lsp.RenameParams) (edit lsp.WorkspaceEdit, err error) {
 	// 判断打开的文件，是否是需要分析的文件
 	comResult := l.beginFileRequest(vs.TextDocument.URI, vs.Position)
 	if !comResult.result {
@@ -21,7 +22,7 @@ func (l *LspServer)TextDocumentRename(ctx context.Context, vs lsp.RenameParams) 
 	}
 
 	project := l.getAllProject()
-	varStruct := getVarStruct(comResult.contents, comResult.offset, comResult.pos.Line, comResult.pos.Character, comResult.strFile)
+	varStruct := check.GetVarStruct(comResult.contents, comResult.offset, comResult.pos.Line, comResult.pos.Character, comResult.strFile)
 	if !varStruct.ValidFlag {
 		log.Error("TextDocumentRename varStruct.ValidFlag not valid")
 		return
@@ -33,7 +34,7 @@ func (l *LspServer)TextDocumentRename(ctx context.Context, vs lsp.RenameParams) 
 
 	for _, referVarInfo := range referenVecs {
 		retRange := lspcommon.LocToRange(&referVarInfo.Loc)
-		uriStr := string(getFileDocumentURI(referVarInfo.StrFile))
+		uriStr := string(lspcommon.GetFileDocumentURI(referVarInfo.StrFile))
 
 		if _, ok := edit.Changes[uriStr]; !ok {
 			edit.Changes[uriStr] = []lsp.TextEdit{}

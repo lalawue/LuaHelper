@@ -9,6 +9,7 @@ import (
 	"luahelper-lsp/langserver/check/compiler/parser"
 	"luahelper-lsp/langserver/check/results"
 	"luahelper-lsp/langserver/log"
+	"luahelper-lsp/langserver/stringutil"
 	"strings"
 )
 
@@ -446,7 +447,7 @@ func (a *AllProject) IsMemberOfAnnotateClassByLoc(strFile string, strFieldNameli
 	return isMemberMap, className
 }
 
-//3 根据className 查找注解的class信息
+// 根据className 查找注解的class信息
 func (a *AllProject) GetAnnClassInfo(className string) *common.CreateTypeInfo {
 	createTypeList, flag := a.createTypeMap[className]
 	if !flag || len(createTypeList.List) == 0 {
@@ -498,8 +499,103 @@ func (a *AllProject) IsAnnotateTypeConst(name string, varInfo *common.VarInfo) (
 	return isConst
 }
 
+func (a *AllProject) filterAnnotateTypeByKey(ClassName string, keyName string) (retVec []string) {
+	//classList := a.getAllNormalAnnotateClass(astType, fileName, lastLine)
+	repeatTypeList := &common.CreateTypeList{
+		List: []*common.CreateTypeInfo{},
+	}
+
+	classList := []*common.OneClassInfo{}
+
+	strMap := map[string]bool{}
+	strMap["any"] = true
+
+	strName := ClassName
+	// 2.1) 获取所有的全局信息
+	createTypeList, flag := a.createTypeMap[strName]
+	if !flag || len(createTypeList.List) == 0 {
+		return
+	}
+
+	for _, oneCreate := range createTypeList.List {
+		// 2.2) 判重
+		if repeatTypeList.IsRepeateTypeInfo(oneCreate) {
+			// 如果有重复的
+			continue
+		}
+
+		repeatTypeList.List = append(repeatTypeList.List, oneCreate)
+
+		if oneCreate.ClassInfo != nil {
+			classInfo := oneCreate.ClassInfo
+			classList = append(classList, classInfo)
+
+			// 所有父类型也处理下，再次递归获取
+			for _, strParent := range classInfo.ClassState.ParentNameList {
+				if _, ok := strMap[strParent]; ok {
+					continue
+				}
+
+				if strName == strParent {
+					continue
+				}
+
+				classListTmp := a.getClassTypeInfoList(strParent, classInfo.LuaFile,
+					oneCreate.LastLine, repeatTypeList, strMap)
+				classList = append(classList, classListTmp...)
+			}
+		}
+
+		if oneCreate.AliasInfo != nil {
+			aliasInfo := oneCreate.AliasInfo
+			aliasType := aliasInfo.AliasState.AliasType
+			classListTmp := a.getInLineAllNormalAnnotateClass(aliasType, aliasInfo.LuaFile,
+				oneCreate.LastLine, repeatTypeList, strMap)
+			classList = append(classList, classListTmp...)
+		}
+	}
+
+	for _, classOne := range classList {
+		if field, ok := classOne.FieldMap[keyName]; ok {
+
+			switch typeInfo := field.FiledType.(type) {
+			case *annotateast.MultiType:
+				for _, oneTypeInfo := range typeInfo.TypeList {
+					switch oneType := oneTypeInfo.(type) {
+					case *annotateast.NormalType:
+						retVec = append(retVec, oneType.StrName)
+					}
+				}
+
+			case *annotateast.NormalType:
+				retVec = append(retVec, typeInfo.StrName)
+			}
+		}
+	}
+
+	return
+}
+
+func (a *AllProject) getAnnotateTypeStringhelp(argTypeInfo annotateast.Type, keyName string) (retVec []string) {
+	switch typeInfo := argTypeInfo.(type) {
+	case *annotateast.MultiType:
+		for _, oneTypeInfo := range typeInfo.TypeList {
+			switch oneType := oneTypeInfo.(type) {
+			case *annotateast.NormalType:
+				retVec = append(retVec, a.filterAnnotateTypeByKey(oneType.StrName, keyName)...)
+			}
+		}
+
+	case *annotateast.NormalType:
+		retVec = append(retVec, a.filterAnnotateTypeByKey(typeInfo.StrName, keyName)...)
+	}
+
+	return retVec
+}
+
 // 获取注解中的类型 可以指定取第几个 如函数有多个返回值时候
-func (a *AllProject) GetAnnotateTypeString(varInfo *common.VarInfo, name string, idx int) (retVec []string) {
+// keyName为varInfo的成员，当keyName有值时，尝试取keyName的注解类型
+func (a *AllProject) GetAnnotateTypeString(varInfo *common.VarInfo, varName string, keyName string, idx int) (retVec []string) {
 
 	retVec = []string{}
 	// 1) 获取文件对应的annotateFile
@@ -522,18 +618,8 @@ func (a *AllProject) GetAnnotateTypeString(varInfo *common.VarInfo, name string,
 			return
 		}
 
-		switch retType := fragmentInfo.ReturnInfo.ReturnTypeList[idx-1].(type) {
-		case *annotateast.MultiType:
-			for _, oneRetType := range retType.TypeList {
-				switch oneType := oneRetType.(type) {
-				case *annotateast.NormalType:
-					retVec = append(retVec, oneType.StrName)
-				}
-			}
-		case *annotateast.NormalType:
-			retVec = append(retVec, retType.StrName)
-
-		}
+		typeInfo := fragmentInfo.ReturnInfo.ReturnTypeList[idx-1]
+		retVec = append(retVec, a.getAnnotateTypeStringhelp(typeInfo, keyName)...)
 
 		return retVec
 	}
@@ -545,7 +631,7 @@ func (a *AllProject) GetAnnotateTypeString(varInfo *common.VarInfo, name string,
 		//需要用参数名称匹配
 		matchIdx := -1
 		for i, paramState := range fragmentInfo.ParamInfo.ParamList {
-			if paramState.Name == name {
+			if paramState.Name == varName {
 				matchIdx = i
 				break
 			}
@@ -555,36 +641,16 @@ func (a *AllProject) GetAnnotateTypeString(varInfo *common.VarInfo, name string,
 			return
 		}
 
-		switch typeInfo := fragmentInfo.ParamInfo.ParamList[matchIdx].ParamType.(type) {
-		case *annotateast.MultiType:
-			for _, oneTypeInfo := range typeInfo.TypeList {
-				switch oneType := oneTypeInfo.(type) {
-				case *annotateast.NormalType:
-					retVec = append(retVec, oneType.StrName)
-				}
-			}
-
-		case *annotateast.NormalType:
-			retVec = append(retVec, typeInfo.StrName)
-		}
+		typeInfo := fragmentInfo.ParamInfo.ParamList[matchIdx].ParamType
+		retVec = append(retVec, a.getAnnotateTypeStringhelp(typeInfo, keyName)...)
 		return retVec
 	}
 
 	if fragmentInfo.TypeInfo != nil &&
 		len(fragmentInfo.TypeInfo.TypeList) >= idx {
 
-		switch typeInfo := fragmentInfo.TypeInfo.TypeList[idx-1].(type) {
-		case *annotateast.MultiType:
-			for _, oneTypeInfo := range typeInfo.TypeList {
-				switch oneType := oneTypeInfo.(type) {
-				case *annotateast.NormalType:
-					retVec = append(retVec, oneType.StrName)
-				}
-			}
-
-		case *annotateast.NormalType:
-			retVec = append(retVec, typeInfo.StrName)
-		}
+		typeInfo := fragmentInfo.TypeInfo.TypeList[idx-1]
+		retVec = append(retVec, a.getAnnotateTypeStringhelp(typeInfo, keyName)...)
 
 		return retVec
 	}
@@ -907,4 +973,76 @@ func (a *AllProject) getCommFunc(strFile string, line, ch int) (comParam *Common
 	}
 
 	return comParam
+}
+
+// GetVarStruct 根据内容的坐标信息，解析出对应的表达式结构
+func GetVarStruct(contents []byte, offset int, line uint32, character uint32, strFile string) (varStruct common.DefineVarStruct) {
+	conLen := len(contents)
+	if offset == conLen {
+		offset = offset - 1
+	}
+
+	// 判断查找的定义是否为
+	// 向前找
+	posCh := contents[offset]
+	if offset > 0 && posCh != '_' && !stringutil.IsDigit(posCh) && !stringutil.IsLetter(posCh) {
+		// 如果offset为非有效的字符，offset向前找一个字符
+		offset--
+	}
+
+	curCh := contents[offset]
+	if curCh != '_' && !stringutil.IsDigit(curCh) && !stringutil.IsLetter(curCh) {
+		// 知道的当前字符为非有效的，退出
+		varStruct.ValidFlag = false
+		//log.Error("stringutil.GetVarStruct not valid")
+		return
+	}
+
+	beforeIndex, endIndex, bracketsFlag := stringutil.GetContentBracketsFlag(contents, offset)
+	rangeConents := contents[beforeIndex : endIndex+1]
+	str := string(rangeConents)
+
+	lastIndex := strings.LastIndex(str, "..")
+	if lastIndex >= 0 {
+		subStr := string(str[lastIndex+2:])
+		str = subStr
+	}
+
+	// 判断最后一个切词是是否为：1为：，-1表示不为
+	lastColonFlag := 0
+
+	// 判断前面是否以冒号开头
+	for i := len(str) - 1; i >= 0; i-- {
+		ch := str[i]
+		if stringutil.IsDigit(ch) || stringutil.IsLetter(ch) || ch == ' ' || ch == '_' {
+			continue
+		}
+
+		if ch == ':' {
+			if lastColonFlag == 0 {
+				lastColonFlag = 1
+			}
+
+			// 以冒号分割
+			if (i + 1) <= (len(str) - 1) {
+				str = str[0:i] + "." + str[i+1:]
+			}
+		} else if ch == '.' {
+			if lastColonFlag != 1 {
+				lastColonFlag = -1
+			}
+		}
+
+		break
+	}
+
+	//log.Debug("stringutil.GetVarStruct str=%s", str)
+	varStruct = StrToDefineVarStruct(str, strFile)
+	varStruct.Str = str
+	varStruct.PosLine = (int)(line)
+	varStruct.PosCh = (int)(character)
+	varStruct.BracketsFlag = bracketsFlag
+	varStruct.ColonFlag = (lastColonFlag == 1)
+
+	return varStruct
 }
