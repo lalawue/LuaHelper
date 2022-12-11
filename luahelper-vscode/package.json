@@ -6,7 +6,7 @@
     "publisher": "lalawue",
     "author": {
         "name": "lalawue",
-        "email": "kio_34@163.com"
+        "email": "suchaaa@gmail.com"
     },
     "license": "BSD-3-Clause",
     "keywords": [
@@ -444,7 +444,7 @@
                     "description": "%luahelper.show.costTime%"
                 },
                 "luahelper.base.formatErrShow": {
-                    "default": true,
+                    "default": false,
                     "scope": "resource",
                     "type": "boolean",
                     "description": "%luahelper.format.errShow%"

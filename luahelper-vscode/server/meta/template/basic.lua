@@ -51,7 +51,7 @@ function assert(v, message) end
 --- **"isrunning"**: returns a boolean that tells whether the collector is
 --- running (i.e., not stopped).
 ---@param opt? cgopt
----@param arg? string
+---@param arg? number
 ---@return any
 -- [`View online doc`](https://www.lua.org/manual/5.4/manual.html#pdf-collectgarbage)  |  [`View local doc`](command:extension.luahelper.doc?["en-us/54/manual.html/pdf-collectgarbage"])
 function collectgarbage(opt, arg) end
@@ -208,7 +208,7 @@ function pairs(t) end
 --- `pcall` also returns all results from the call, after this first result. In
 --- case of any error, `pcall` returns **false** plus the error message.
 ---@param f fun():any
----@param arg1 ? table
+---@param arg1 ? any
 ---@return boolean|table
 -- [`View online doc`](https://www.lua.org/manual/5.4/manual.html#pdf-pcall)  |  [`View local doc`](command:extension.luahelper.doc?["en-us/54/manual.html/pdf-pcall"])
 function pcall(f, arg1, ...) end
@@ -325,7 +325,7 @@ function setmetatable(table, metatable) end
 --- represents 10, 'B' represents 11, and so forth, with 'Z' representing 35. If
 --- the string `e` is not a valid numeral in the given base, the function
 --- returns **nil**.
----@param e string
+---@param e string|number
 ---@param base? number
 ---@return any
 -- [`View online doc`](https://www.lua.org/manual/5.4/manual.html#pdf-tonumber)  |  [`View local doc`](command:extension.luahelper.doc?["en-us/54/manual.html/pdf-tonumber"])
