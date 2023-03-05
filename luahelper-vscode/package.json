@@ -3,7 +3,7 @@
     "displayName": "MoocHelper",
     "description": "MoocHelper, Intellisense, Linting, Debugging, Code formatting, High-performance, and more.",
     "version": "0.2.19",
-    "publisher": "lalawue",
+    "publisher": "suchangnet",
     "author": {
         "name": "lalawue",
         "email": "suchaaa@gmail.com"
@@ -436,7 +436,7 @@
                     "type": "boolean",
                     "description": "%luahelper.show.online%"
                 },
-               
+
                 "luahelper.base.showCostTime": {
                     "default": false,
                     "scope": "resource",
@@ -640,7 +640,7 @@
                     "scope": "resource",
                     "type": "integer",
                     "markdownDescription": "%luahelper.format.line_breaks_after_function_body%"
-                },             
+                },
                 "luahelper.Warn.AllEnable": {
                     "default": true,
                     "scope": "resource",
