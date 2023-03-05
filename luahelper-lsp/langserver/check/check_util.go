@@ -275,6 +275,32 @@ func (a *AllProject) GetFuncDefaultParamInfo(fileName string, lastLine int, para
 }
 
 // 获取参数类型
+func (a *AllProject) GetVarAnnType(fileName string, lastLine int) (string, bool) {
+	annotateFile := a.getAnnotateFile(fileName)
+	if annotateFile == nil {
+		return "", false
+	}
+
+	// 2) 获取注解文件指定行号的注释块信息
+	fragmentInfo := annotateFile.GetLineFragementInfo(lastLine)
+	if fragmentInfo == nil || fragmentInfo.TypeInfo == nil || len(fragmentInfo.TypeInfo.TypeList) == 0 {
+		return "", false
+	}
+
+	multiType, ok := fragmentInfo.TypeInfo.TypeList[0].(*annotateast.MultiType)
+	if !ok {
+		return "", false
+	}
+
+	nt, ok := multiType.TypeList[0].(*annotateast.NormalType)
+	if !ok {
+		return "", false
+	}
+
+	return nt.StrName, true
+}
+
+// 获取参数类型
 func (a *AllProject) GetFuncParamType(fileName string, lastLine int) (retMap map[string][]annotateast.Type) {
 	retMap = map[string][]annotateast.Type{}
 	annotateParamInfo := a.GetFuncParamInfo(fileName, lastLine)
@@ -294,6 +320,26 @@ func (a *AllProject) GetFuncParamType(fileName string, lastLine int) (retMap map
 
 	}
 	return retMap
+}
+
+// 获取返回值类型 返回一个二维数组 如---@return number,string|number 对应[[number],[string,number]]
+func (a *AllProject) GetFuncReturnTypeVec(fileName string, lastLine int) (retVec [][]string) {
+
+	annotatePeturnInfo := a.GetFuncReturnInfo(fileName, lastLine)
+	if annotatePeturnInfo == nil {
+		return
+	}
+	for _, oneReturn := range annotatePeturnInfo.ReturnTypeList {
+		oneRetVec := []string{}
+		switch subAst := oneReturn.(type) {
+		case *annotateast.MultiType:
+			for _, oneType := range subAst.TypeList {
+				oneRetVec = append(oneRetVec, annotateast.GetAstTypeName(oneType))
+			}
+		}
+		retVec = append(retVec, oneRetVec)
+	}
+	return retVec
 }
 
 // 获取返回值类型 返回一个二维数组 如---@return number,string|number 对应[[number],[string,number]]

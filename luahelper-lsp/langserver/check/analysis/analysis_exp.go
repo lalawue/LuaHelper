@@ -120,6 +120,11 @@ func (a *Analysis) cgFuncDefExp(node *ast.FuncDefExp) *common.FuncInfo {
 		subFi.ParamList = append(subFi.ParamList, param)
 	}
 
+	if a.isSecondTerm() {
+		//获取参数与返回值的注解类型
+		a.loadFuncParamAnnType(subFi)
+	}
+
 	// 备份
 	backupFunc := a.curFunc
 	backupScope := a.curScope

@@ -8,6 +8,7 @@ import (
 
 /*
 stat ::=  ‘;’
+
 	| break
 	| ‘::’ Name ‘::’
 	| goto Name
@@ -616,8 +617,8 @@ func (p *moocParser) getLocalAttribute() ast.LocalAttr {
 	return ast.VDKREG
 }
 
-//namelist for loacl var after lua 5.4 add support for local var attribute, added by guochuliang 2020-08-20
-//5.3
+// namelist for loacl var after lua 5.4 add support for local var attribute, added by guochuliang 2020-08-20
+// 5.3
 // namelist ::= Name {‘,’ Name}
 // 5.4
 // namelist ::= Name attrib {‘,’ Name attrib}
@@ -864,10 +865,12 @@ func (p *moocParser) parseFuncDefStat(isExport bool, isStaticAttr bool) *ast.Ass
 	}
 	l.NextTokenKind(lexer.TkKwFn) // function
 	beginLoc := l.GetNowTokenLoc()
-	fnExp, hasColon := p.parseFuncName(isStaticAttr) // funcname
+	fnExp, hasColon, className, funcName := p.parseFuncName(isStaticAttr) // funcname
 	selfLoc := l.GetNowTokenLoc()
 	fdExp := p.parseFuncDefExp(false, &beginLoc) // funcbody
-	if hasColon {                                // insert self
+	fdExp.ClassName = className
+	fdExp.FuncName = funcName
+	if hasColon { // insert self
 		fdExp.ParList = append(fdExp.ParList, "")
 		copy(fdExp.ParList[1:], fdExp.ParList)
 		fdExp.ParList[0] = "self"
@@ -894,7 +897,8 @@ func (p *moocParser) parseFuncDefStat(isExport bool, isStaticAttr bool) *ast.Ass
 }
 
 // funcname ::= Name {‘.’ Name} [‘:’ Name]
-func (p *moocParser) parseFuncName(isStaticAttr bool) (exp ast.Exp, hasColon bool) {
+// 设定：最后一个是函数名 倒数第二个是类名
+func (p *moocParser) parseFuncName(isStaticAttr bool) (exp ast.Exp, hasColon bool, className string, funcName string) {
 	sp := p.scopes.current()
 
 	l := p.l
@@ -919,6 +923,8 @@ func (p *moocParser) parseFuncName(isStaticAttr bool) (exp ast.Exp, hasColon boo
 			Loc:       tableLoc,
 		}
 		hasColon = !isStaticAttr
+		className = sp.name
+		funcName = name
 	} else {
 
 		beginTableLoc := l.GetNowTokenLoc()
@@ -926,10 +932,12 @@ func (p *moocParser) parseFuncName(isStaticAttr bool) (exp ast.Exp, hasColon boo
 			Name: name,
 			Loc:  loc,
 		}
-
+		funcName = name
 		for l.LookAheadKind() == lexer.TkSepDot {
+			className = name
 			l.NextToken()
 			_, name := l.NextIdentifier()
+			funcName = name
 			loc := l.GetNowTokenLoc()
 			idx := &ast.StringExp{
 				Str: name,
@@ -946,8 +954,10 @@ func (p *moocParser) parseFuncName(isStaticAttr bool) (exp ast.Exp, hasColon boo
 			}
 		}
 		if l.LookAheadKind() == lexer.TkSepColon {
+			className = name
 			l.NextToken()
 			_, name := l.NextIdentifier()
+			funcName = name
 			loc := l.GetNowTokenLoc()
 			idx := &ast.StringExp{
 				Str: name,
@@ -983,11 +993,11 @@ func (p *moocParser) parseIKIllegalStat() *ast.EmptyStat {
 	return _statEmpty
 }
 
-// class identifier {
-//	fn name() {
-//		return b
+//	class identifier {
+//		fn name() {
+//			return b
+//		}
 //	}
-// }
 func (p *moocParser) parserClassDefStat(global bool, keyToken lexer.TkKind) ast.Stat {
 	l := p.l
 

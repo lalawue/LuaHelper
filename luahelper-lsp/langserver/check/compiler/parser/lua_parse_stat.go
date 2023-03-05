@@ -529,10 +529,12 @@ func (p *luaParser) parseFuncDefStat() *ast.AssignStat {
 	l := p.l
 	l.NextTokenKind(lexer.TkKwFunction) // function
 	beginLoc := l.GetNowTokenLoc()
-	fnExp, hasColon := p.parseFuncName() // funcname
+	fnExp, hasColon, className, funcName := p.parseFuncName() // funcname
 	selfLoc := l.GetNowTokenLoc()
 	fdExp := p.parseFuncDefExp(&beginLoc) // funcbody
-	if hasColon {                         // insert self
+	fdExp.ClassName = className
+	fdExp.FuncName = funcName
+	if hasColon { // insert self
 		fdExp.ParList = append(fdExp.ParList, "")
 		copy(fdExp.ParList[1:], fdExp.ParList)
 		fdExp.ParList[0] = "self"
@@ -553,7 +555,8 @@ func (p *luaParser) parseFuncDefStat() *ast.AssignStat {
 }
 
 // funcname ::= Name {‘.’ Name} [‘:’ Name]
-func (p *luaParser) parseFuncName() (exp ast.Exp, hasColon bool) {
+// 设定：最后一个是函数名 倒数第二个是类名
+func (p *luaParser) parseFuncName() (exp ast.Exp, hasColon bool, className string, funcName string) {
 	l := p.l
 	_, name := l.NextIdentifier()
 	loc := l.GetNowTokenLoc()
@@ -564,9 +567,12 @@ func (p *luaParser) parseFuncName() (exp ast.Exp, hasColon bool) {
 		Loc:  loc,
 	}
 
+	funcName = name
 	for l.LookAheadKind() == lexer.TkSepDot {
+		className = name
 		l.NextToken()
 		_, name := l.NextIdentifier()
+		funcName = name
 		loc := l.GetNowTokenLoc()
 		idx := &ast.StringExp{
 			Str: name,
@@ -582,9 +588,12 @@ func (p *luaParser) parseFuncName() (exp ast.Exp, hasColon bool) {
 			Loc:       tableLoc,
 		}
 	}
+
 	if l.LookAheadKind() == lexer.TkSepColon {
+		className = name
 		l.NextToken()
 		_, name := l.NextIdentifier()
+		funcName = name
 		loc := l.GetNowTokenLoc()
 		idx := &ast.StringExp{
 			Str: name,
