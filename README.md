@@ -25,12 +25,18 @@ This extension help MoocScript/Lua with LSP support, on the shoulder of [LuaHelp
 
 ## Installation
 
-App Market Installation
+### App Market Installation
 
-Click the Vs Code application market icon
-Search moochelper in the input box
-Click to install MoocHelper
-Marketplace url: https://marketplace.visualstudio.com/items?itemName=suchangnet.MoocHelper
+- Click the Vs Code application market icon
+- Search `moochelper` in the input box
+- Click to install MoocHelper
+- Marketplace url: https://marketplace.visualstudio.com/items?itemName=suchangnet.MoocHelper
+
+### Local Installation
+
+- download a pre-build one in [releases](https://github.com/lalawue/MoocHelper/releases/), or in [gitee mirror](https://gitee.com/lalawue/MoocHelper/releases/).
+- create your own .vsix package with `npm install -g vsce`, then `vsce package` under `luahelper-vscode` dir
+
 
 ## Documentation
 
@@ -44,4 +50,7 @@ Marketplace url: https://marketplace.visualstudio.com/items?itemName=suchangnet.
 
 ## Support
 
-If you have any questions, please refer to [Documents](https://github.com/lalawue/mooncake#documentation). If you have any questions, please use [issues](https://github.com/lalawue/mooncake/issues). The author will follow and reply.
+- [Documents](https://github.com/lalawue/mooncake#documentation)
+- [issues](https://github.com/lalawue/mooncake/issues)
+
+The author will follow and reply.
