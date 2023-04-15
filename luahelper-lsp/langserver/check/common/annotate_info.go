@@ -285,7 +285,7 @@ type CreateTypeList struct {
 	List []*CreateTypeInfo
 }
 
-// IsRepeateTypeInfo 判断传人的createTypeInfo是否已经存在了
+// IsRepeateTypeInfo 判断传入的createTypeInfo是否已经存在了
 func (cl *CreateTypeList) IsRepeateTypeInfo(createTypeInfo *CreateTypeInfo) bool {
 	if len(cl.List) == 0 {
 		return false

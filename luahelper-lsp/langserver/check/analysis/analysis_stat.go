@@ -1143,7 +1143,7 @@ func (a *Analysis) cgAssignStat(node *ast.AssignStat) {
 			}
 		}
 
-		//检查 tableA.a = 1 这种情况
+		//检查 tableA.a = 1 这种情况 只
 		if leftExp, ok := node.VarList[0].(*ast.TableAccessExp); ok {
 			a.checkTableAccess(leftExp)
 		}

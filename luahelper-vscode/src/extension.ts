@@ -255,6 +255,7 @@ async function doStartServer() {
             IgnoreFileOrDir: ignoreFileOrDirArr,
             IgnoreFileOrDirError: ignoreFileOrDirErrArr,
             RequirePathSeparator: requirePathSeparator,
+	    EnableReport: false,
         },
         markdown: {
             isTrusted: true,
