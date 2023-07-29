@@ -26,8 +26,8 @@ func (a *Analysis) checkLocVarCall() {
 
 	// 扫描当前scope，判断哪些局部变量定义了未使用
 	for varName, varInfoList := range scope.LocVarMap {
-		// _ 局部变量忽略, _G也忽略
-		if varName == "_" || varName == "_G" {
+		// _ 局部变量忽略, _G也忽略，moocscript 独有的 Self、Super、__st 也忽略
+		if varName == "_" || varName == "_G" || varName == "Self" || varName == "Super" || varName == "__st" {
 			continue
 		}
 
