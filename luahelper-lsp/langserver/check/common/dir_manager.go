@@ -31,6 +31,11 @@ type DirManager struct {
 	// 插件前端配置的读取Lua标准库等lua文件的文件夹
 	clientExtLuaPath string
 
+	// 缓存已经处理过的文件夹路径，防止软链接递归循环加载文件夹
+	cacheDirMap map[string]bool
+
+	cacheMutex sync.Mutex
+
 	// 类似 LUA_LPATH 的配置
 	clientLuaLPaths []string
 
@@ -46,6 +51,7 @@ func createDirManager() *DirManager {
 		configRelativeDir: "./",
 		mainDir:           "",
 		clientExtLuaPath:  "",
+		cacheDirMap:       make(map[string]bool),
 	}
 
 	return dirManager
@@ -194,6 +200,26 @@ func (d *DirManager) GetPathFileList(path string) (fileList []string) {
 	return fileList
 }
 
+// insetOneDirCache 插入子文件夹到cache中，如果已经处理过了插入失败
+func (d *DirManager) insetOneDirCache(path string) bool {
+	d.cacheMutex.Lock()
+	defer d.cacheMutex.Unlock()
+
+	if _, ok := d.cacheDirMap[path]; ok {
+		return false
+	}
+	d.cacheDirMap[path] = true
+	return true
+}
+
+// resetDirCache
+func (d *DirManager) resetDirCache() {
+	d.cacheMutex.Lock()
+	defer d.cacheMutex.Unlock()
+
+	d.cacheDirMap = make(map[string]bool)
+}
+
 // ParallelRun 并行获取目录文件列表的对象
 type ParallelRun struct {
 	sem chan struct{}
@@ -242,6 +268,9 @@ func (d *DirManager) GetDirFileList(path string, ignoreFlag bool) (fileList []st
 
 	run.Add()
 
+	d.resetDirCache()
+	d.insetOneDirCache(path)
+
 	// 遍历文件的chan结果
 	fileChan := make(chan string)
 	go getAllFile(run, path, path, ignoreFlag, fileChan)
@@ -272,6 +301,14 @@ func dirents(run *ParallelRun, dir string) []os.FileInfo {
 	return rd
 }
 
+func isDir(path string) bool {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return fileInfo.IsDir()
+}
+
 // 递归获取目录下面所有的lua文件
 // dirStr 传入的子目录的原始路径
 // ignoreFlag 表示是否需要判断忽略文件
@@ -280,6 +317,7 @@ func getAllFile(run *ParallelRun, pathname string, dirStr string, ignoreFlag boo
 
 	g := GConfig
 	rd := dirents(run, pathname)
+	dm := GConfig.dirManager
 
 	for _, fi := range rd {
 		// 首先判断是否linux软链接
@@ -297,6 +335,23 @@ func getAllFile(run *ParallelRun, pathname string, dirStr string, ignoreFlag boo
 			completeStr := pathname
 			if !strings.HasSuffix(pathname, "/") {
 				completeStr += "/"
+			}
+
+			tmpDir := completeStr + strName
+			if symlinkFlag && isDir(tmpDir) {
+				targetPath, err := os.Readlink(tmpDir)
+				if err == nil {
+					absPath, err1 := filepath.Abs(targetPath)
+					if err1 == nil && !dm.insetOneDirCache(absPath) {
+						log.Error("insetOneDirCache error=%s", absPath)
+						continue
+					}
+				}
+			}
+
+			if !dm.insetOneDirCache(completeStr + strName) {
+				log.Error("insetOneDirCache error=%s", completeStr+strName)
+				continue
 			}
 
 			completeStr += strName + "/"
@@ -514,6 +569,11 @@ func (d *DirManager) GetAllCompleFile(pathname string, referType ReferType,
 		if !strings.HasSuffix(pathname, "/") {
 			completeStr += "/"
 		}
+
+		if len(mainDir)+1 >= len(completeStr) {
+			continue
+		}
+
 		pathBeforeStr := completeStr[len(mainDir)+1:]
 
 		// 判断是否要处理
@@ -647,7 +707,7 @@ func (d *DirManager) GetBestMatchReferFile(curFile string, referFile string, all
 
 	candidateVec := []string{}
 	strVec := strings.Split(referFile, "/")
-	referfileName := strVec[len(strVec)-1]	
+	referfileName := strVec[len(strVec)-1]
 
 	var fileNameMap map[string]string
 	if suffixFlag {
@@ -661,7 +721,7 @@ func (d *DirManager) GetBestMatchReferFile(curFile string, referFile string, all
 		if suffixFlag {
 			if !strings.HasSuffix(strFile, referFileTmp) {
 				continue
-			}	
+			}
 		} else {
 			preFile := pathToPreStr
 			if preFile == "" {

@@ -79,6 +79,17 @@ func (a *AllProject) CompleteAnnotateArea() {
 	timeString := timeNow.Format("2006-01-02 15:04:05")
 	detail = "author: " + userName + " " + timeString
 	a.completeCache.InsertCompleteNormal(detail, detail, document, common.IKAnnotateClass)
+
+	// 10) enum
+	detail = "enum start @"
+	document = "---@enum start"
+	document += "\n\n" + "sample:\n---@enum start @enum start"
+	a.completeCache.InsertCompleteNormal(detail, detail, document, common.IKAnnotateClass)
+
+	detail = "enum end"
+	document = "---@enum end"
+	document += "\n\n" + "sample:\n---@enum end"
+	a.completeCache.InsertCompleteNormal(detail, detail, document, common.IKAnnotateClass)
 }
 
 // 获取注解输入param时候，提示所有的函数参数名
@@ -344,7 +355,9 @@ func (a *AllProject) getVarInfoCompleteExt(symbol *common.Symbol, colonFlag bool
 		for _, oneClass := range classList {
 			a.convertClassInfoToCompleteVecs(oneClass, colonFlag)
 		}
-		return
+
+		// 注释掉，同时补全注解类型与变量的类型
+		// return
 	}
 
 	// 2) 没有注解的模式
